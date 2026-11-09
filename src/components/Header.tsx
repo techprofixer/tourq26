@@ -1,33 +1,76 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { NavLink, NavMegaMenus } from "@/lib/nav-content";
 
 /**
  * Sticky marketing nav (DESIGN.md → nav-bar).
- * Behaviour: opens transparent over the hero (canvas-dark) band; switches to a
- * glass-blurred chrome once the user scrolls so it remains legible on both
- * dark hero bands and white product bands.
+ * - Opens on the dark hero band; switches to a glass-blurred light chrome once scrolled.
+ * - Desktop (lg+): centred link row with accessible dropdowns (hover, click, keyboard, Esc).
+ * - Mobile (<lg): full-height drawer with accordion submenus, scroll lock, Esc / route-change close.
  */
+
+const HOVER_CLOSE_DELAY = 140;
+
+function isLinkActive(pathname: string, href: string) {
+  if (!href || href.includes("#")) return false;
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function externalProps(link: NavLink) {
+  return link.openInNewTab ? { target: "_blank", rel: "noopener noreferrer" } : {};
+}
+
+function ChevronDown({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className={`h-3.5 w-3.5 ${className}`}>
+      <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ArrowRight({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" aria-hidden="true" className={`h-3.5 w-3.5 ${className}`}>
+      <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 export default function Header({
   navLinks = [],
   megaMenus = {},
   logoUrl,
+  logoDarkUrl,
   bannerActive = false,
 }: {
   navLinks?: NavLink[];
   megaMenus?: NavMegaMenus;
   logoUrl?: string;
+  /** Logo variant for dark backgrounds (hero band / mobile drawer); falls back to `logoUrl`. */
+  logoDarkUrl?: string;
   /** Offsets the header below the fixed OfferBanner (h-10) when one is showing. */
   bannerActive?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
-  const resolvedLinks = navLinks;
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileSection, setMobileSection] = useState<string | null>(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [scrolled, setScrolled] = useState(false);
+  const [lastPath, setLastPath] = useState(pathname);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  // Close everything on navigation (state adjustment during render, no effect needed).
+  if (pathname !== lastPath) {
+    setLastPath(pathname);
+    setMobileOpen(false);
+    setMobileSection(null);
+    setOpenMenu(null);
+  }
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 16);
@@ -36,23 +79,74 @@ export default function Header({
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // Esc closes whichever menu is open and returns focus to its trigger.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (openMenu) {
+        triggerRefs.current[openMenu]?.focus();
+        setOpenMenu(null);
+      }
+      setMobileOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [openMenu]);
+
+  // Lock page scroll behind the mobile drawer; auto-close it when resized to desktop.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const onChange = (e: MediaQueryListEvent) => e.matches && setMobileOpen(false);
+    mq.addEventListener("change", onChange);
+    return () => {
+      document.body.style.overflow = prev;
+      mq.removeEventListener("change", onChange);
+    };
+  }, [mobileOpen]);
+
+  useEffect(() => () => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+  }, []);
+
+  const cancelClose = useCallback(() => {
+    if (closeTimer.current) clearTimeout(closeTimer.current);
+    closeTimer.current = null;
+  }, []);
+
+  const scheduleClose = useCallback(() => {
+    cancelClose();
+    closeTimer.current = setTimeout(() => setOpenMenu(null), HOVER_CLOSE_DELAY);
+  }, [cancelClose]);
+
+  // Dark chrome while over the hero, or whenever the mobile drawer is open.
+  const dark = !scrolled || mobileOpen;
+  const topOffset = bannerActive ? "2.5rem" : "0px";
+  const activeLogo = (dark && logoDarkUrl) || logoUrl;
+
   return (
     <header
-      className={`fixed left-0 right-0 z-50 transition-colors duration-200 ${bannerActive ? "top-10" : "top-0"} ${
-        scrolled
-          ? "glass-panel"
-          : "bg-[var(--brand-canvas-dark)] text-white border-b border-transparent"
+      className={`fixed inset-x-0 z-[55] transition-[background-color,color,box-shadow] duration-300 ${
+        bannerActive ? "top-10" : "top-0"
+      } ${
+        dark
+          ? "border-b border-white/[0.06] bg-[var(--brand-canvas-dark)] text-white"
+          : "glass-panel text-[var(--app-fg)] shadow-[0_1px_24px_-12px_rgba(0,0,0,0.18)]"
       }`}
-      data-band={scrolled ? "auto" : "dark"}
+      data-band={dark ? "dark" : "auto"}
     >
-      <div className="mx-auto flex w-full max-w-[1280px] items-center justify-between gap-6 px-4 py-3.5 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 w-full max-w-[1280px] items-center gap-4 px-4 sm:px-6 lg:gap-6 lg:px-8">
+        {/* Logo */}
         <Link
           href="/"
-          className="font-display text-[20px] font-medium tracking-[-0.02em] text-inherit transition-opacity hover:opacity-80"
+          aria-label="Home"
+          className="flex shrink-0 items-center font-display text-[20px] font-medium tracking-[-0.02em] text-inherit transition-opacity hover:opacity-80"
         >
-          {logoUrl ? (
+          {activeLogo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="" className="h-7 w-auto" />
+            <img src={activeLogo} alt="" className="h-7 w-auto" />
           ) : (
             <>
               torq<span className="brand-gradient-text">.studio</span>
@@ -60,152 +154,285 @@ export default function Header({
           )}
         </Link>
 
-        <nav className="hidden items-center gap-7 md:flex" aria-label="Primary">
-          {resolvedLinks.map((link) => {
-            const isActive = pathname === link.href;
-            const menuItems = megaMenus[link.href];
-            const hasMenu = !!menuItems && menuItems.length > 0;
+        {/* Desktop links */}
+        <nav className="hidden min-w-0 flex-1 justify-center lg:flex" aria-label="Primary">
+          <ul className="flex items-center gap-0.5 xl:gap-1">
+            {navLinks.map((link) => {
+              const items = megaMenus[link.href] ?? [];
+              const hasMenu = items.length > 0;
+              const active = isLinkActive(pathname, link.href);
+              const isOpen = openMenu === link.href;
+              const menuId = `nav-menu-${link.href.replace(/[^a-z0-9]/gi, "")}`;
 
-            return (
-              <div
-                key={link.href}
-                className={hasMenu ? "group/nav relative" : "relative"}
-              >
-                <Link
-                  href={link.href}
-                  aria-current={isActive ? "page" : undefined}
-                  aria-haspopup={hasMenu ? "true" : undefined}
-                  className={`group relative py-1 text-[14px] font-medium tracking-tight text-inherit transition-opacity duration-200 ${
-                    isActive ? "opacity-100" : "opacity-85 hover:opacity-100"
-                  }`}
-                  {...(link.openInNewTab
-                    ? { target: "_blank", rel: "noopener noreferrer" }
-                    : {})}
+              const itemBase = `inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-1.5 text-[13.5px] font-medium tracking-tight transition-colors duration-150 xl:px-3 ${
+                dark
+                  ? active || isOpen
+                    ? "bg-white/10 text-white"
+                    : "text-white/75 hover:bg-white/[0.07] hover:text-white"
+                  : active || isOpen
+                    ? "bg-black/[0.06] text-[var(--app-fg)]"
+                    : "text-[var(--app-muted-fg)] hover:bg-black/[0.04] hover:text-[var(--app-fg)]"
+              }`;
+
+              if (!hasMenu) {
+                return (
+                  <li key={link.href}>
+                    <Link
+                      href={link.href}
+                      aria-current={active ? "page" : undefined}
+                      className={itemBase}
+                      {...externalProps(link)}
+                    >
+                      {link.label}
+                    </Link>
+                  </li>
+                );
+              }
+
+              const columns = items.length > 6;
+              return (
+                <li
+                  key={link.href}
+                  className="relative"
+                  onMouseEnter={() => {
+                    cancelClose();
+                    setOpenMenu(link.href);
+                  }}
+                  onMouseLeave={scheduleClose}
+                  onBlur={(e) => {
+                    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setOpenMenu(null);
+                  }}
                 >
-                  {link.label}
-                  <span
-                    aria-hidden="true"
-                    className={`pointer-events-none absolute inset-x-0 -bottom-1 h-[1.5px] origin-left scale-x-0 transition-transform duration-300 ease-out group-hover:scale-x-100 ${
-                      isActive ? "scale-x-100" : ""
-                    }`}
-                    style={{ backgroundImage: "var(--brand-gradient)" }}
-                  />
-                </Link>
+                  <button
+                    type="button"
+                    ref={(el) => {
+                      triggerRefs.current[link.href] = el;
+                    }}
+                    aria-expanded={isOpen}
+                    aria-controls={menuId}
+                    onClick={() => setOpenMenu(isOpen ? null : link.href)}
+                    className={itemBase}
+                  >
+                    {link.label}
+                    <ChevronDown
+                      className={`opacity-70 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
+                    />
+                  </button>
 
-                {hasMenu ? (
-                  <div className="invisible absolute left-1/2 top-full z-50 -translate-x-1/2 pt-4 opacity-0 transition-[opacity,visibility] duration-150 group-hover/nav:visible group-hover/nav:opacity-100">
+                  <div
+                    id={menuId}
+                    className={`absolute left-1/2 top-full z-50 -translate-x-1/2 pt-3 transition-[opacity,transform,visibility] duration-200 ease-out ${
+                      isOpen
+                        ? "visible translate-y-0 opacity-100"
+                        : "invisible -translate-y-1 opacity-0 pointer-events-none"
+                    }`}
+                  >
                     <div
-                      className="w-[560px] max-w-[80vw] rounded-[var(--radius-md)] border p-5 shadow-2xl"
+                      className={`overflow-hidden rounded-[var(--radius-lg)] border shadow-[0_24px_60px_-20px_rgba(0,0,0,0.35)] ${
+                        columns ? "w-[580px]" : "w-[300px]"
+                      }`}
                       style={{
                         backgroundColor: "var(--app-surface)",
-                        borderColor: "var(--app-hairline)",
+                        borderColor: "rgba(0,0,0,0.08)",
                         color: "var(--app-fg)",
                       }}
                     >
-                      <ul className="grid grid-cols-2 gap-x-6 gap-y-1">
-                        {menuItems!.map((item) => (
-                          <li key={item.href}>
-                            <Link
-                              href={item.href}
-                              className="block truncate rounded-[var(--radius-sm)] px-2 py-1.5 text-[13px] text-[var(--app-muted-fg)] transition-colors hover:bg-[color-mix(in_srgb,var(--app-fg)_6%,transparent)] hover:text-[var(--app-fg)]"
-                            >
-                              {item.label}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
+                      <div className="h-[2px]" style={{ backgroundImage: "var(--brand-gradient)" }} />
+                      <div className="p-3">
+                        <p className="mono-eyebrow px-2.5 pb-2 pt-1 text-[var(--app-muted-fg)]">
+                          {link.label}
+                        </p>
+                        <ul className={columns ? "grid grid-cols-2 gap-x-2" : "flex flex-col"}>
+                          {items.map((item) => {
+                            const itemActive = isLinkActive(pathname, item.href);
+                            return (
+                              <li key={item.href}>
+                                <Link
+                                  href={item.href}
+                                  aria-current={itemActive ? "page" : undefined}
+                                  className={`group/item flex items-center justify-between gap-3 rounded-[var(--radius-md)] px-2.5 py-2 text-[13.5px] transition-colors hover:bg-[var(--app-muted)] hover:text-[var(--app-fg)] focus-visible:bg-[var(--app-muted)] ${
+                                    itemActive ? "bg-[var(--app-muted)] text-[var(--app-fg)]" : "text-[var(--app-muted-fg)]"
+                                  }`}
+                                >
+                                  <span className="truncate">{item.label}</span>
+                                  <ArrowRight className="shrink-0 -translate-x-1 opacity-0 transition-all duration-150 group-hover/item:translate-x-0 group-hover/item:opacity-100" />
+                                </Link>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
                       <Link
                         href={link.href}
-                        className="mono-button mt-4 inline-flex items-center gap-1 border-t pt-4"
-                        style={{ borderColor: "var(--app-hairline)" }}
+                        className="mono-button flex items-center justify-between border-t px-5 py-3.5 text-[12px] transition-colors hover:bg-[var(--app-muted)]"
+                        style={{ borderColor: "rgba(0,0,0,0.06)" }}
+                        {...externalProps(link)}
                       >
-                        VIEW ALL {link.label.toUpperCase()} →
+                        View all {link.label}
+                        <ArrowRight />
                       </Link>
                     </div>
                   </div>
-                ) : null}
-              </div>
-            );
-          })}
+                </li>
+              );
+            })}
+          </ul>
         </nav>
 
-        <div className="hidden items-center gap-3 md:flex">
+        {/* Desktop CTAs */}
+        <div className="ml-auto hidden shrink-0 items-center gap-2 lg:flex">
           <Link
             href="/contact"
-            className="mono-button rounded-[var(--radius-sm)] px-4 py-2 text-inherit/90 hover:text-inherit"
+            className={`mono-button hidden rounded-[var(--radius-sm)] px-3 py-2 transition-opacity xl:inline-flex ${
+              dark ? "text-white/80 hover:text-white" : "text-[var(--app-muted-fg)] hover:text-[var(--app-fg)]"
+            }`}
           >
             Contact sales
           </Link>
           <Link
             href="/contact"
-            className="btn-base btn-primary"
+            className={`btn-base group/cta !py-2.5 ${dark ? "btn-mint" : "btn-primary"}`}
           >
             Get started
+            <ArrowRight className="transition-transform duration-150 group-hover/cta:translate-x-0.5" />
           </Link>
         </div>
 
+        {/* Mobile toggle */}
         <button
           type="button"
-          aria-label="Toggle menu"
-          aria-expanded={open}
-          className="-m-2 flex flex-col gap-1.5 rounded-md p-2 md:hidden"
-          onClick={() => setOpen(!open)}
+          aria-label={mobileOpen ? "Close menu" : "Open menu"}
+          aria-expanded={mobileOpen}
+          aria-controls="mobile-nav"
+          className={`relative -mr-2 ml-auto flex h-10 w-10 items-center justify-center rounded-full transition-colors lg:hidden ${
+            dark ? "hover:bg-white/10" : "hover:bg-black/5"
+          }`}
+          onClick={() => setMobileOpen((v) => !v)}
         >
-          <span
-            className={`h-0.5 w-6 bg-current transition-all duration-200 ${open ? "translate-y-2 rotate-45" : ""}`}
-          />
-          <span
-            className={`h-0.5 w-6 bg-current transition-all duration-200 ${open ? "scale-0 opacity-0" : ""}`}
-          />
-          <span
-            className={`h-0.5 w-6 bg-current transition-all duration-200 ${open ? "-translate-y-2 -rotate-45" : ""}`}
-          />
+          <span className="relative block h-3.5 w-5">
+            <span
+              className={`absolute left-0 top-0 h-[1.5px] w-5 rounded bg-current transition-all duration-300 ${
+                mobileOpen ? "top-1/2 -translate-y-1/2 rotate-45" : ""
+              }`}
+            />
+            <span
+              className={`absolute left-0 top-1/2 h-[1.5px] w-5 -translate-y-1/2 rounded bg-current transition-opacity duration-200 ${
+                mobileOpen ? "opacity-0" : ""
+              }`}
+            />
+            <span
+              className={`absolute bottom-0 left-0 h-[1.5px] w-5 rounded bg-current transition-all duration-300 ${
+                mobileOpen ? "bottom-1/2 translate-y-1/2 -rotate-45" : ""
+              }`}
+            />
+          </span>
         </button>
       </div>
 
-      {open && (
-        <div className="border-t border-[var(--app-glass-border)] bg-[var(--brand-canvas-dark)] text-white md:hidden">
-          <div className="flex flex-col gap-3 px-4 py-4">
-            <nav className="flex flex-col gap-1" aria-label="Mobile primary">
-              {resolvedLinks.map((link) => {
-                const isActive = pathname === link.href;
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setOpen(false)}
-                    aria-current={isActive ? "page" : undefined}
-                    className={`rounded-[var(--radius-sm)] px-3 py-3 text-[15px] font-medium transition-colors duration-150 hover:bg-white/5 hover:text-white ${
-                      isActive ? "bg-white/5 text-white" : "text-white/80"
-                    }`}
-                    {...(link.openInNewTab
-                      ? { target: "_blank", rel: "noopener noreferrer" }
-                      : {})}
-                  >
-                    {link.label}
-                  </Link>
-                );
-              })}
-            </nav>
-            <div className="mt-2 flex flex-col gap-2 border-t border-white/10 pt-3">
-              <Link
-                href="/contact"
-                onClick={() => setOpen(false)}
-                className="btn-base btn-white w-full"
-              >
-                Contact sales
-              </Link>
-              <Link
-                href="/contact"
-                onClick={() => setOpen(false)}
-                className="btn-base btn-mint w-full"
-              >
-                Get started
-              </Link>
-            </div>
-          </div>
+      {/* Mobile drawer */}
+      <div
+        id="mobile-nav"
+        className={`absolute inset-x-0 top-full flex flex-col overflow-hidden border-t border-white/[0.06] bg-[var(--brand-canvas-dark)] text-white transition-[opacity,transform,visibility] duration-300 ease-out lg:hidden ${
+          mobileOpen ? "visible translate-y-0 opacity-100" : "invisible -translate-y-2 opacity-0 pointer-events-none"
+        }`}
+        style={{ height: `calc(100dvh - 4rem - ${topOffset})` }}
+        aria-hidden={!mobileOpen}
+      >
+        <nav className="flex-1 overflow-y-auto px-4 py-4 sm:px-6" aria-label="Mobile primary">
+          <ul className="flex flex-col divide-y divide-white/[0.06]">
+            {navLinks.map((link) => {
+              const items = megaMenus[link.href] ?? [];
+              const hasMenu = items.length > 0;
+              const active = isLinkActive(pathname, link.href);
+              const expanded = mobileSection === link.href;
+              const sectionId = `m-nav-${link.href.replace(/[^a-z0-9]/gi, "")}`;
+
+              return (
+                <li key={link.href}>
+                  {hasMenu ? (
+                    <>
+                      <button
+                        type="button"
+                        aria-expanded={expanded}
+                        aria-controls={sectionId}
+                        onClick={() => setMobileSection(expanded ? null : link.href)}
+                        className={`flex w-full items-center justify-between py-4 text-left text-[17px] font-medium ${
+                          active ? "text-white" : "text-white/85"
+                        }`}
+                      >
+                        {link.label}
+                        <ChevronDown
+                          className={`h-4 w-4 text-white/60 transition-transform duration-200 ${expanded ? "rotate-180" : ""}`}
+                        />
+                      </button>
+                      <div
+                        id={sectionId}
+                        className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+                          expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                        }`}
+                      >
+                        <div className="overflow-hidden">
+                          <ul className="flex flex-col gap-0.5 pb-4 pl-3">
+                            {items.map((item) => (
+                              <li key={item.href}>
+                                <Link
+                                  href={item.href}
+                                  tabIndex={expanded ? undefined : -1}
+                                  onClick={() => setMobileOpen(false)}
+                                  className={`block rounded-[var(--radius-md)] px-3 py-2.5 text-[15px] transition-colors hover:bg-white/5 hover:text-white ${
+                                    isLinkActive(pathname, item.href) ? "bg-white/5 text-white" : "text-white/65"
+                                  }`}
+                                >
+                                  {item.label}
+                                </Link>
+                              </li>
+                            ))}
+                            <li>
+                              <Link
+                                href={link.href}
+                                tabIndex={expanded ? undefined : -1}
+                                onClick={() => setMobileOpen(false)}
+                                className="mono-button mt-1 inline-flex items-center gap-2 px-3 py-2.5 text-[12px] text-[var(--brand-mint)]"
+                              >
+                                View all {link.label}
+                                <ArrowRight />
+                              </Link>
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <Link
+                      href={link.href}
+                      onClick={() => setMobileOpen(false)}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex items-center justify-between py-4 text-[17px] font-medium transition-colors hover:text-white ${
+                        active ? "text-white" : "text-white/85"
+                      }`}
+                      {...externalProps(link)}
+                    >
+                      {link.label}
+                      {active ? (
+                        <span className="h-1.5 w-1.5 rounded-full bg-[var(--brand-mint)]" aria-hidden="true" />
+                      ) : null}
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </nav>
+
+        <div className="grid grid-cols-2 gap-2 border-t border-white/[0.08] px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4 sm:px-6">
+          <Link href="/contact" onClick={() => setMobileOpen(false)} className="btn-base btn-white w-full">
+            Contact sales
+          </Link>
+          <Link href="/contact" onClick={() => setMobileOpen(false)} className="btn-base btn-mint w-full">
+            Get started
+          </Link>
         </div>
-      )}
+      </div>
     </header>
   );
 }

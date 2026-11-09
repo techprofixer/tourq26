@@ -8,12 +8,6 @@ export function formatBlogDate(dateStr: string) {
   });
 }
 
-export function sortBlogPostsByDateDesc(posts: BlogPost[]) {
-  return [...posts].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-  );
-}
-
 export function blogPostsExcluding(posts: BlogPost[], slug: string, limit: number) {
   return posts.filter((p) => p.slug !== slug).slice(0, limit);
 }

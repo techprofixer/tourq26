@@ -66,15 +66,19 @@ export function extractTextFromCmsBlocks(blocks: CmsBlock[]): string {
           parts.push(`${item.title}. ${item.description}`);
         }
         break;
+      case "summary":
+        if (block.heading) parts.push(block.heading);
+        parts.push(...block.items);
+        break;
       case "faq":
         if (block.heading) parts.push(block.heading);
         for (const item of block.items) {
-          parts.push(`${item.question} ${item.answer}`);
+          parts.push(`${item.question} ${stripHtmlToText(item.answer)}`);
         }
         break;
       case "cta":
         if (block.heading) parts.push(block.heading);
-        if (block.body) parts.push(block.body);
+        if (block.body) parts.push(stripHtmlToText(block.body));
         break;
       default:
         break;

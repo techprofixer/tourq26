@@ -1,3 +1,23 @@
+/** Site-wide share image from `app/opengraph-image.tsx`. File-based OG images only merge into the
+ *  segment that owns the file — any page that sets its own `openGraph` object replaces it and must
+ *  repeat this, or it ships with no og:image at all. (Twitter inherits from openGraph.images.) */
+/** `robots` for indexable pages. A page-level `robots` object replaces the layout's, so pages that
+ *  set one must repeat the googleBot directives — these allow full-length snippets and large image
+ *  previews, which gate how much of a page Search, Discover and AI Overviews may show. */
+export const INDEXABLE_ROBOTS = {
+  index: true,
+  follow: true,
+  googleBot: {
+    index: true,
+    follow: true,
+    "max-snippet": -1,
+    "max-image-preview": "large" as const,
+    "max-video-preview": -1,
+  },
+};
+
+export const DEFAULT_OG_IMAGE = { url: "/opengraph-image", width: 1200, height: 630 } as const;
+
 export type BreadcrumbItem = { name: string; path: string };
 
 export function breadcrumbListJsonLd(siteUrl: string, items: BreadcrumbItem[]) {
@@ -74,21 +94,101 @@ export function blogPostingJsonLd(params: {
   return ld;
 }
 
+/** Stable `@id`s so every page's JSON-LD links into one entity graph (Organization → WebSite →
+ *  WebPage → main entity). Search engines and LLM crawlers resolve these into a single brand entity
+ *  instead of many disconnected anonymous Organizations. Must match the ids emitted in layout.tsx. */
+export function organizationId(siteUrl: string): string {
+  return `${siteUrl.replace(/\/$/, "")}/#organization`;
+}
+
+export function websiteId(siteUrl: string): string {
+  return `${siteUrl.replace(/\/$/, "")}/#website`;
+}
+
+function absoluteUrl(siteUrl: string, pathOrUrl: string): string {
+  if (/^https?:\/\//i.test(pathOrUrl)) return pathOrUrl;
+  return `${siteUrl.replace(/\/$/, "")}${pathOrUrl.startsWith("/") ? "" : "/"}${pathOrUrl}`;
+}
+
 export function webPageJsonLd(params: {
   siteUrl: string;
   path: string;
   name: string;
   description: string;
+  /** Schema.org WebPage subtype, e.g. "CollectionPage", "AboutPage", "FAQPage". */
+  type?: string;
+  datePublished?: string;
+  dateModified?: string;
+  /** Absolute URL or site-relative path of the page's lead/share image. */
+  image?: string;
 }) {
-  const url = `${params.siteUrl}${params.path}`;
+  const url = absoluteUrl(params.siteUrl, params.path);
   return {
     "@context": "https://schema.org",
-    "@type": "WebPage",
+    "@type": params.type ?? "WebPage",
     "@id": url,
     url,
     name: params.name,
     description: params.description,
-    isPartOf: { "@type": "WebSite", url: params.siteUrl, name: params.name },
+    inLanguage: "en-US",
+    isPartOf: { "@id": websiteId(params.siteUrl) },
+    publisher: { "@id": organizationId(params.siteUrl) },
+    ...(params.datePublished ? { datePublished: params.datePublished } : {}),
+    ...(params.dateModified ? { dateModified: params.dateModified } : {}),
+    ...(params.image
+      ? { primaryImageOfPage: { "@type": "ImageObject", url: absoluteUrl(params.siteUrl, params.image) } }
+      : {}),
+  };
+}
+
+/** Long-form editorial page (guide, comparison, glossary entry, research). */
+export function articleJsonLd(params: {
+  siteUrl: string;
+  path: string;
+  headline: string;
+  description: string;
+  datePublished: string;
+  dateModified: string;
+  authorName?: string;
+  image?: string;
+  /** Schema.org Article subtype — "Article", "TechArticle", "Report"… */
+  type?: string;
+}) {
+  const url = absoluteUrl(params.siteUrl, params.path);
+  return {
+    "@context": "https://schema.org",
+    "@type": params.type ?? "Article",
+    "@id": `${url}#article`,
+    headline: params.headline,
+    description: params.description,
+    datePublished: params.datePublished,
+    dateModified: params.dateModified,
+    author: params.authorName?.trim()
+      ? { "@type": "Person", name: params.authorName.trim() }
+      : { "@id": organizationId(params.siteUrl) },
+    publisher: { "@id": organizationId(params.siteUrl) },
+    mainEntityOfPage: { "@id": url },
+    url,
+    inLanguage: "en-US",
+    ...(params.image ? { image: absoluteUrl(params.siteUrl, params.image) } : {}),
+  };
+}
+
+/** Glossary entry — DefinedTerm is the type answer engines use for "what is X" definitions. */
+export function definedTermJsonLd(params: {
+  siteUrl: string;
+  path: string;
+  name: string;
+  description: string;
+}) {
+  const url = absoluteUrl(params.siteUrl, params.path);
+  return {
+    "@context": "https://schema.org",
+    "@type": "DefinedTerm",
+    "@id": `${url}#term`,
+    name: params.name,
+    description: params.description,
+    url,
   };
 }
 
@@ -100,31 +200,21 @@ export function serviceJsonLd(params: {
   siteName: string;
   areaServed?: string;
 }) {
-  const url = `${params.siteUrl}${params.path.startsWith("/") ? params.path : `/${params.path}`}`;
+  const url = absoluteUrl(params.siteUrl, params.path);
   return {
     "@context": "https://schema.org",
     "@type": "Service",
+    "@id": `${url}#service`,
     name: params.name,
     description: params.description,
     url,
-    provider: { "@type": "Organization", name: params.siteName, url: params.siteUrl },
+    provider: {
+      "@type": "Organization",
+      "@id": organizationId(params.siteUrl),
+      name: params.siteName,
+      url: params.siteUrl,
+    },
     areaServed: params.areaServed ?? "Worldwide",
-  };
-}
-
-export function servicesItemListJsonLd(siteUrl: string, services: { name: string; description: string }[]) {
-  return {
-    "@context": "https://schema.org",
-    "@type": "ItemList",
-    name: "Services",
-    numberOfItems: services.length,
-    itemListElement: services.map((s, i) => ({
-      "@type": "ListItem",
-      position: i + 1,
-      name: s.name,
-      description: s.description,
-      url: `${siteUrl}/#services`,
-    })),
   };
 }
 
@@ -161,29 +251,6 @@ export function faqPageJsonLd(faqs: { question: string; answer: string }[]) {
       name: f.question,
       acceptedAnswer: { "@type": "Answer", text: f.answer },
     })),
-  };
-}
-
-export function webApplicationJsonLd(params: {
-  siteUrl: string;
-  path: string;
-  name: string;
-  description: string;
-}) {
-  const url = `${params.siteUrl}${params.path.startsWith("/") ? params.path : `/${params.path}`}`;
-  return {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    name: params.name,
-    description: params.description,
-    url,
-    applicationCategory: "BusinessApplication",
-    operatingSystem: "Any",
-    offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "USD",
-    },
   };
 }
 

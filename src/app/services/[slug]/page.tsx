@@ -8,7 +8,7 @@ import { CmsPageView, findPublishedPage } from "@/components/cms/CmsEntityPage";
 import { getServicePage, servicePages } from "@/data/services-content";
 import { publishedBlogPosts, readBlogPosts, readSiteContent } from "@/lib/content";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd, faqPageJsonLd, serviceJsonLd, webPageJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, faqPageJsonLd, serviceJsonLd, webPageJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 import { ServiceSectionNav } from "@/components/marketing/ServiceSectionNav";
 import { RelatedContentSection } from "@/components/marketing/RelatedContentSection";
@@ -34,7 +34,7 @@ export async function generateMetadata({
   const baseUrl = site.siteUrl.replace(/\/$/, "");
 
   const cms = await findPublishedPage(`/services/${slug}`);
-  if (cms) return buildPageMetadata(cms, baseUrl);
+  if (cms) return buildPageMetadata(cms, baseUrl, site.siteName);
 
   const page = getServicePage(slug);
   if (!page) return { title: "Service not found", robots: { index: false, follow: false } };
@@ -43,11 +43,12 @@ export async function generateMetadata({
     description: page.description,
     alternates: { canonical: `${baseUrl}/services/${page.slug}` },
     openGraph: {
+      images: [DEFAULT_OG_IMAGE],
       title: `${page.title} | Torq Studio`,
       description: page.description,
       url: `${baseUrl}/services/${page.slug}`,
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 

@@ -8,7 +8,7 @@ import { freebies } from "@/data/freebies";
 import { getFreebieContentNode } from "@/data/freebie-content";
 import { readSiteContent } from "@/lib/content";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 import { getFreebieExtraProseParagraphs } from "@/data/freebie-page-extra-prose";
 
@@ -52,7 +52,7 @@ export async function generateMetadata({
         ? { site: `@${site.twitterSite}`, creator: `@${site.twitterSite}` }
         : {}),
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 

@@ -6,7 +6,7 @@ import JsonLd from "@/components/JsonLd";
 import { BlockRenderer } from "@/components/cms/BlockRenderer";
 import { RelatedContentSection } from "@/components/marketing/RelatedContentSection";
 import { getPublishedPageByPath, getPageBlocks } from "@/lib/cms/pages";
-import { buildPageJsonLd, buildPageMetadata } from "@/lib/cms/metadata";
+import { buildPageBreadcrumbs, buildPageJsonLd, buildPageMetadata } from "@/lib/cms/metadata";
 import { getSiteUrl } from "@/lib/site-url";
 import { readSiteContent } from "@/lib/content";
 import { getRelatedContentGroups } from "@/lib/related-links";
@@ -29,7 +29,8 @@ export async function cmsPageMetadata(
 ): Promise<Metadata> {
   const page = await findPublishedPage(path);
   if (!page) return fallback;
-  return buildPageMetadata(page, await getSiteUrl());
+  const [siteUrl, site] = await Promise.all([getSiteUrl(), readSiteContent()]);
+  return buildPageMetadata(page, siteUrl, site.siteName);
 }
 
 /** Renders a published CMS page with header, JSON-LD and footer. */
@@ -55,7 +56,7 @@ export async function CmsPageView({
       ))}
       <MarketingHeader />
       <main>
-        <BlockRenderer blocks={blocks} />
+        <BlockRenderer blocks={blocks} breadcrumbs={buildPageBreadcrumbs(page)} />
         {relatedGroups ? <RelatedContentSection groups={relatedGroups} /> : null}
       </main>
       <Footer />

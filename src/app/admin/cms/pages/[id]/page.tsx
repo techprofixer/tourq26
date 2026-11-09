@@ -7,6 +7,12 @@ import { PageEditor } from "@/components/admin/cms/PageEditor";
 
 type Props = { params: Promise<{ id: string }> };
 
+/** Stored custom JSON-LD → editor textarea text. An empty array is the "none" sentinel. */
+function formatJsonLd(value: unknown): string {
+  if (value == null || (Array.isArray(value) && value.length === 0)) return "";
+  return JSON.stringify(value, null, 2);
+}
+
 export default async function AdminCmsEditPage({ params }: Props) {
   const ok = await isAdmin();
   if (!ok) redirect("/admin");
@@ -24,13 +30,14 @@ export default async function AdminCmsEditPage({ params }: Props) {
         crumbs={[
           { label: "Admin", href: "/admin/dashboard" },
           { label: "CMS Pages", href: "/admin/cms/pages" },
-          { label: page.title },
+          { label: page.title.length > 32 ? `${page.title.slice(0, 32)}…` : page.title },
         ]}
-        title={page.title}
-        description={`${page.type} · ${page.status} · ${page.path}`}
+        title="Edit page"
+        description="Changes to a live page go live when you click Update. ⌘S saves."
       />
-      <div className="mt-8">
+      <div className="mt-6">
         <PageEditor
+          key={page.id}
           mode="edit"
           pageId={page.id}
           siteUrl={site.siteUrl}
@@ -49,6 +56,11 @@ export default async function AdminCmsEditPage({ params }: Props) {
               focusKeyword: page.seo?.focusKeyword ?? "",
               robotsIndex: page.seo?.robotsIndex ?? true,
               robotsFollow: page.seo?.robotsFollow ?? true,
+              canonical: page.seo?.canonical ?? "",
+              ogImageUrl: page.seo?.ogImageUrl ?? "",
+              breadcrumbLabel: page.seo?.breadcrumbLabel ?? "",
+              authorName: page.seo?.authorName ?? "",
+              jsonLdCustom: formatJsonLd(page.seo?.jsonLdCustom),
             },
             brief: {
               targetKeyword: page.brief?.targetKeyword ?? "",

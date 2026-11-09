@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import JsonLd from "@/components/JsonLd";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = await getSiteUrl();
@@ -12,12 +12,13 @@ export async function generateMetadata(): Promise<Metadata> {
       "Torq Studio privacy policy. How we collect, use, and protect your data. GDPR-friendly, transparent practices.",
     alternates: { canonical: `${baseUrl}/privacy` },
     openGraph: {
+      images: [DEFAULT_OG_IMAGE],
       title: "Privacy Policy | Torq Studio",
       description:
         "How we collect, use, and protect your data. Transparent privacy practices for our website and services.",
       url: `${baseUrl}/privacy`,
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 

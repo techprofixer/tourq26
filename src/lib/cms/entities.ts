@@ -1,14 +1,6 @@
-import type { EntityKind, RelationType } from "@prisma/client";
+import type { EntityKind } from "@prisma/client";
 import { prisma, withDbTimeout } from "@/lib/db";
 import { slugify } from "@/lib/slug";
-
-export const ENTITY_KINDS = [
-  "SERVICE",
-  "SOLUTION",
-  "INDUSTRY",
-  "TECHNOLOGY",
-  "LOCATION",
-] as const satisfies readonly EntityKind[];
 
 export type SeedEntity = {
   slug: string;
@@ -205,38 +197,6 @@ export async function deleteEntity(
   return entityDelegate(kind).delete({ where: { id } });
 }
 
-export async function upsertEntityRelation(input: {
-  fromKind: EntityKind;
-  fromId: string;
-  toKind: EntityKind;
-  toId: string;
-  relationType?: RelationType;
-  weight?: number;
-}) {
-  return prisma.entityRelation.upsert({
-    where: {
-      fromKind_fromId_toKind_toId_relationType: {
-        fromKind: input.fromKind,
-        fromId: input.fromId,
-        toKind: input.toKind,
-        toId: input.toId,
-        relationType: input.relationType ?? "RELATED_TO",
-      },
-    },
-    create: {
-      fromKind: input.fromKind,
-      fromId: input.fromId,
-      toKind: input.toKind,
-      toId: input.toId,
-      relationType: input.relationType ?? "RELATED_TO",
-      weight: input.weight ?? 1,
-    },
-    update: {
-      weight: input.weight ?? 1,
-    },
-  });
-}
-
 export async function seedCmsEntities() {
   const serviceIds = new Map<string, string>();
 
@@ -363,7 +323,10 @@ export async function ensureEntityPage(kind: ManagedEntityKind, slug: string) {
     });
   }
 
-  const { createPage, pathFor } = await import("@/lib/cms/pages");
+  const [{ createPage }, { pathFor }] = await Promise.all([
+    import("@/lib/cms/pages"),
+    import("@/lib/cms/paths"),
+  ]);
   const pageType =
     kind === "SERVICE"
       ? "SERVICE"
@@ -406,7 +369,6 @@ export async function ensureEntityPage(kind: ManagedEntityKind, slug: string) {
     seo: {
       metaTitle: `${entity.name} | Torq Studio`,
       metaDescription: entity.summary,
-      schemaKeys: kind === "SERVICE" ? ["Service"] : [],
       focusKeyword: entity.name.toLowerCase(),
     },
     brief: {
@@ -428,14 +390,6 @@ export async function ensureEntityPage(kind: ManagedEntityKind, slug: string) {
     await prisma.technology.update({ where: { id: entity.id }, data: { pageId: page.id } });
   }
 
-  await prisma.pageEntity.create({
-    data: {
-      pageId: page.id,
-      entityKind: kind,
-      entityId: entity.id,
-      isPrimary: true,
-    },
-  });
 
   return page;
 }

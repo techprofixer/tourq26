@@ -10,7 +10,7 @@ import { getRelatedContentGroups } from "@/lib/related-links";
 import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
 import { getSiteUrl } from "@/lib/site-url";
 import { readSiteContent } from "@/lib/content";
-import { breadcrumbListJsonLd, techNewsArticleJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, techNewsArticleJsonLd, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { formatLongDate } from "@/lib/date-format";
 
 // Safety net: on-demand revalidation covers CMS edits, but this bounds staleness
@@ -58,7 +58,7 @@ export async function generateMetadata({
         ? { site: `@${site.twitterSite}`, creator: `@${site.twitterSite}` }
         : {}),
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 

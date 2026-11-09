@@ -1,52 +1,20 @@
-import type {
-  EntityKind,
-  PageOrigin,
-  PageType,
-  Prisma,
-  WorkflowStatus,
-} from "@prisma/client";
+import type { EntityKind, PageType, Prisma, WorkflowStatus } from "@prisma/client";
+import { z } from "zod";
 import { prisma, withDbTimeout } from "@/lib/db";
 import { parseBlocks, type CmsBlock } from "@/lib/cms/blocks";
 import { slugify } from "@/lib/slug";
+import { normalizePagePath, pagePathError, pathFor } from "@/lib/cms/paths";
+
 
 export type PageWithSeo = Prisma.PageGetPayload<{
-  include: { seo: true; brief: true; entityLinks: true };
+  include: { seo: true; brief: true };
 }>;
 
-export function pathFor(type: PageType, slug: string): string {
-  const s = slugify(slug);
-  switch (type) {
-    case "HOME":
-      return "/";
-    case "SERVICE":
-      return `/services/${s}`;
-    case "SOLUTION":
-      return `/solutions/${s}`;
-    case "INDUSTRY":
-      return `/industries/${s}`;
-    case "TECHNOLOGY":
-      return `/technologies/${s}`;
-    case "LOCATION":
-      return `/locations/${s}`;
-    case "PRICING":
-      return `/pricing/${s}`;
-    case "CASE_STUDY":
-      return `/case-studies/${s}`;
-    case "BLOG":
-      return `/blog/${s}`;
-    case "COMPANY":
-      return `/company/${s}`;
-    case "CONTACT":
-      return "/contact";
-    case "GUIDE":
-      return `/resources/guides/${s}`;
-    case "COMPARISON":
-      return `/compare/${s}`;
-    case "GLOSSARY":
-      return `/resources/glossary/${s}`;
-    default:
-      return `/${s}`;
-  }
+function resolvePagePath(path: string): string {
+  const normalized = normalizePagePath(path);
+  const err = pagePathError(normalized);
+  if (err) throw new Error(err);
+  return normalized;
 }
 
 export async function listPages(opts?: {
@@ -68,7 +36,7 @@ export async function listPages(opts?: {
 export async function getPageById(id: string) {
   return prisma.page.findUnique({
     where: { id },
-    include: { seo: true, brief: true, entityLinks: true },
+    include: { seo: true, brief: true },
   });
 }
 
@@ -80,7 +48,7 @@ export async function getPublishedPageByPath(path: string) {
         path: normalized,
         status: "PUBLISHED",
       },
-      include: { seo: true, brief: true, entityLinks: true },
+      include: { seo: true, brief: true },
     }),
   );
 }
@@ -89,7 +57,7 @@ export async function getPageByPathAnyStatus(path: string) {
   const normalized = path === "" ? "/" : path.startsWith("/") ? path : `/${path}`;
   return prisma.page.findUnique({
     where: { path: normalized },
-    include: { seo: true, brief: true, entityLinks: true },
+    include: { seo: true, brief: true },
   });
 }
 
@@ -97,7 +65,6 @@ export type UpsertPageInput = {
   title: string;
   slug: string;
   type: PageType;
-  origin?: PageOrigin;
   status?: WorkflowStatus;
   path?: string;
   excerpt?: string | null;
@@ -111,8 +78,10 @@ export type UpsertPageInput = {
     robotsIndex?: boolean;
     robotsFollow?: boolean;
     focusKeyword?: string | null;
-    schemaKeys?: string[];
     breadcrumbLabel?: string | null;
+    ogImageUrl?: string | null;
+    authorName?: string | null;
+    jsonLdCustom?: Prisma.InputJsonValue | null;
   };
   brief?: {
     targetKeyword?: string | null;
@@ -123,10 +92,100 @@ export type UpsertPageInput = {
   };
 };
 
+type SeoInput = NonNullable<UpsertPageInput["seo"]>;
+type BriefInput = NonNullable<UpsertPageInput["brief"]>;
+
+/** Drops `undefined` keys so partial updates only touch the fields the caller sent. */
+function definedOnly<T extends Record<string, unknown>>(obj: T): Partial<T> {
+  return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
+}
+
+function trimmedOrNull(value: string | null | undefined): string | null | undefined {
+  if (value === undefined) return undefined;
+  const t = value?.trim() ?? "";
+  return t ? t : null;
+}
+
+/** Maps editor SEO input onto SeoMetadata columns. MongoDB has no JSON null, so a cleared custom
+ *  JSON-LD value is stored as an empty array (treated as "none" by the renderer). */
+function seoFields(seo: SeoInput) {
+  return definedOnly({
+    metaTitle: trimmedOrNull(seo.metaTitle),
+    metaDescription: trimmedOrNull(seo.metaDescription),
+    canonical: trimmedOrNull(seo.canonical),
+    robotsIndex: seo.robotsIndex,
+    robotsFollow: seo.robotsFollow,
+    focusKeyword: trimmedOrNull(seo.focusKeyword),
+    breadcrumbLabel: trimmedOrNull(seo.breadcrumbLabel),
+    ogImageUrl: trimmedOrNull(seo.ogImageUrl),
+    authorName: trimmedOrNull(seo.authorName),
+    jsonLdCustom:
+      seo.jsonLdCustom === undefined ? undefined : (seo.jsonLdCustom ?? ([] as Prisma.InputJsonValue)),
+  });
+}
+
+function briefFields(brief: BriefInput) {
+  return definedOnly({
+    targetKeyword: trimmedOrNull(brief.targetKeyword),
+    secondaryKeywords: brief.secondaryKeywords,
+    searchIntent: brief.searchIntent,
+    targetAudience: trimmedOrNull(brief.targetAudience),
+    buyerStage: brief.buyerStage,
+  });
+}
+
+const optionalText = (max: number) => z.string().max(max).nullish();
+const optionalUrl = z
+  .string()
+  .trim()
+  .max(2048)
+  .refine((v) => v === "" || /^https?:\/\/\S+$/i.test(v) || v.startsWith("/"), {
+    message: "Must be an absolute http(s) URL or a site-relative path",
+  })
+  .nullish();
+
+/** Custom JSON-LD: accepts a JSON object/array, or a string containing one (from the editor textarea). */
+const jsonLdInput = z
+  .union([z.string(), z.record(z.string(), z.unknown()), z.array(z.record(z.string(), z.unknown()))])
+  .nullish()
+  .transform((value, ctx) => {
+    if (value == null) return value;
+    if (typeof value !== "string") return value as Prisma.InputJsonValue;
+    if (!value.trim()) return null;
+    try {
+      const parsed: unknown = JSON.parse(value);
+      if (typeof parsed === "object" && parsed !== null) return parsed as Prisma.InputJsonValue;
+    } catch {
+      /* fall through */
+    }
+    ctx.addIssue({ code: "custom", message: "Custom JSON-LD must be a valid JSON object or array" });
+    return z.NEVER;
+  });
+
+export const seoInputSchema = z.object({
+  metaTitle: optionalText(200),
+  metaDescription: optionalText(500),
+  canonical: optionalUrl,
+  robotsIndex: z.boolean().optional(),
+  robotsFollow: z.boolean().optional(),
+  focusKeyword: optionalText(120),
+  breadcrumbLabel: optionalText(120),
+  ogImageUrl: optionalUrl,
+  authorName: optionalText(120),
+  jsonLdCustom: jsonLdInput,
+});
+
+export const briefInputSchema = z.object({
+  targetKeyword: optionalText(120),
+  secondaryKeywords: z.array(z.string().max(120)).max(50).optional(),
+  searchIntent: z.enum(["INFORMATIONAL", "NAVIGATIONAL", "COMMERCIAL", "TRANSACTIONAL"]).nullish(),
+  targetAudience: optionalText(500),
+  buyerStage: z.enum(["AWARENESS", "CONSIDERATION", "DECISION", "RETENTION"]).nullish(),
+});
+
 export async function createPage(input: UpsertPageInput) {
   const slug = slugify(input.slug || input.title);
-  const path = input.path ?? pathFor(input.type, slug);
-  const blocks = input.blocks ?? [];
+  const path = resolvePagePath(input.path || pathFor(input.type, slug));
 
   return prisma.page.create({
     data: {
@@ -134,150 +193,58 @@ export async function createPage(input: UpsertPageInput) {
       path,
       title: input.title,
       type: input.type,
-      origin: input.origin ?? "MANUAL",
       status: input.status ?? "DRAFT",
       excerpt: input.excerpt ?? null,
-      blocks: blocks as unknown as Prisma.InputJsonValue,
+      blocks: (input.blocks ?? []) as unknown as Prisma.InputJsonValue,
       primaryEntityKind: input.primaryEntityKind ?? null,
       primaryEntityId: input.primaryEntityId ?? null,
-      seo: input.seo
-        ? {
-            create: {
-              metaTitle: input.seo.metaTitle ?? input.title,
-              metaDescription: input.seo.metaDescription ?? null,
-              canonical: input.seo.canonical ?? null,
-              robotsIndex: input.seo.robotsIndex ?? true,
-              robotsFollow: input.seo.robotsFollow ?? true,
-              focusKeyword: input.seo.focusKeyword ?? null,
-              schemaKeys: input.seo.schemaKeys ?? [],
-              breadcrumbLabel: input.seo.breadcrumbLabel ?? null,
-            },
-          }
-        : {
-            create: {
-              metaTitle: input.title,
-              robotsIndex: true,
-              robotsFollow: true,
-            },
-          },
-      brief: input.brief
-        ? {
-            create: {
-              targetKeyword: input.brief.targetKeyword ?? null,
-              secondaryKeywords: input.brief.secondaryKeywords ?? [],
-              searchIntent: input.brief.searchIntent ?? null,
-              targetAudience: input.brief.targetAudience ?? null,
-              buyerStage: input.brief.buyerStage ?? null,
-            },
-          }
-        : undefined,
+      seo: { create: { metaTitle: input.title, ...(input.seo ? seoFields(input.seo) : {}) } },
+      brief: input.brief ? { create: briefFields(input.brief) } : undefined,
     },
     include: { seo: true, brief: true },
   });
 }
 
-export async function updatePage(id: string, input: Partial<UpsertPageInput> & { blocks?: CmsBlock[] }) {
+export async function updatePage(id: string, input: Partial<UpsertPageInput>) {
   const existing = await prisma.page.findUnique({ where: { id } });
   if (!existing) return null;
 
   const slug = input.slug != null ? slugify(input.slug) : existing.slug;
   const type = input.type ?? existing.type;
-  const path = input.path ?? (input.slug || input.type ? pathFor(type, slug) : existing.path);
+  const path = input.path
+    ? resolvePagePath(input.path)
+    : input.slug || input.type
+      ? resolvePagePath(pathFor(type, slug))
+      : existing.path;
+
+  const seo = input.seo ? seoFields(input.seo) : null;
+  const brief = input.brief ? briefFields(input.brief) : null;
 
   return prisma.page.update({
     where: { id },
     data: {
-      ...(input.title != null ? { title: input.title } : {}),
       slug,
       path,
       type,
-      ...(input.status != null ? { status: input.status } : {}),
-      ...(input.excerpt !== undefined ? { excerpt: input.excerpt } : {}),
-      ...(input.blocks != null
-        ? { blocks: input.blocks as unknown as Prisma.InputJsonValue }
-        : {}),
-      ...(input.primaryEntityKind !== undefined
-        ? { primaryEntityKind: input.primaryEntityKind }
-        : {}),
-      ...(input.primaryEntityId !== undefined
-        ? { primaryEntityId: input.primaryEntityId }
-        : {}),
-      ...(input.seo
+      ...definedOnly({
+        title: input.title ?? undefined,
+        status: input.status ?? undefined,
+        excerpt: input.excerpt,
+        primaryEntityKind: input.primaryEntityKind,
+        primaryEntityId: input.primaryEntityId,
+      }),
+      ...(input.blocks ? { blocks: input.blocks as unknown as Prisma.InputJsonValue } : {}),
+      ...(seo
         ? {
             seo: {
               upsert: {
-                create: {
-                  metaTitle: input.seo.metaTitle ?? input.title ?? existing.title,
-                  metaDescription: input.seo.metaDescription ?? null,
-                  canonical: input.seo.canonical ?? null,
-                  robotsIndex: input.seo.robotsIndex ?? true,
-                  robotsFollow: input.seo.robotsFollow ?? true,
-                  focusKeyword: input.seo.focusKeyword ?? null,
-                  schemaKeys: input.seo.schemaKeys ?? [],
-                  breadcrumbLabel: input.seo.breadcrumbLabel ?? null,
-                },
-                update: {
-                  ...(input.seo.metaTitle !== undefined
-                    ? { metaTitle: input.seo.metaTitle }
-                    : {}),
-                  ...(input.seo.metaDescription !== undefined
-                    ? { metaDescription: input.seo.metaDescription }
-                    : {}),
-                  ...(input.seo.canonical !== undefined
-                    ? { canonical: input.seo.canonical }
-                    : {}),
-                  ...(input.seo.robotsIndex !== undefined
-                    ? { robotsIndex: input.seo.robotsIndex }
-                    : {}),
-                  ...(input.seo.robotsFollow !== undefined
-                    ? { robotsFollow: input.seo.robotsFollow }
-                    : {}),
-                  ...(input.seo.focusKeyword !== undefined
-                    ? { focusKeyword: input.seo.focusKeyword }
-                    : {}),
-                  ...(input.seo.schemaKeys !== undefined
-                    ? { schemaKeys: input.seo.schemaKeys }
-                    : {}),
-                  ...(input.seo.breadcrumbLabel !== undefined
-                    ? { breadcrumbLabel: input.seo.breadcrumbLabel }
-                    : {}),
-                },
+                create: { metaTitle: input.title ?? existing.title, ...seo },
+                update: seo,
               },
             },
           }
         : {}),
-      ...(input.brief
-        ? {
-            brief: {
-              upsert: {
-                create: {
-                  targetKeyword: input.brief.targetKeyword ?? null,
-                  secondaryKeywords: input.brief.secondaryKeywords ?? [],
-                  searchIntent: input.brief.searchIntent ?? null,
-                  targetAudience: input.brief.targetAudience ?? null,
-                  buyerStage: input.brief.buyerStage ?? null,
-                },
-                update: {
-                  ...(input.brief.targetKeyword !== undefined
-                    ? { targetKeyword: input.brief.targetKeyword }
-                    : {}),
-                  ...(input.brief.secondaryKeywords !== undefined
-                    ? { secondaryKeywords: input.brief.secondaryKeywords }
-                    : {}),
-                  ...(input.brief.searchIntent !== undefined
-                    ? { searchIntent: input.brief.searchIntent }
-                    : {}),
-                  ...(input.brief.targetAudience !== undefined
-                    ? { targetAudience: input.brief.targetAudience }
-                    : {}),
-                  ...(input.brief.buyerStage !== undefined
-                    ? { buyerStage: input.brief.buyerStage }
-                    : {}),
-                },
-              },
-            },
-          }
-        : {}),
+      ...(brief ? { brief: { upsert: { create: brief, update: brief } } } : {}),
     },
     include: { seo: true, brief: true },
   });

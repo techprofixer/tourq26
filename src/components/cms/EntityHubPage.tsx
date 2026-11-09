@@ -4,6 +4,7 @@ import MarketingHeader from "@/components/MarketingHeader";
 import Footer from "@/components/Footer";
 import { getSiteUrl } from "@/lib/site-url";
 import { getEntityCatalogCards, ENTITY_HUB_PATH, type EntityCatalogKind } from "@/lib/entity-catalog";
+import { DEFAULT_OG_IMAGE } from "@/lib/seo";
 
 function pathPrefix(kind: "SOLUTION" | "INDUSTRY" | "TECHNOLOGY" | "LOCATION") {
   return ENTITY_HUB_PATH[kind];
@@ -23,6 +24,7 @@ export function makeHubPage(opts: {
       description: opts.description,
       alternates: { canonical: `${siteUrl}${path}` },
       openGraph: {
+        images: [DEFAULT_OG_IMAGE],
         title: `${opts.title} | Torq Studio`,
         description: opts.description,
         url: `${siteUrl}${path}`,

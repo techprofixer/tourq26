@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import type { BrandContent } from "@/lib/brand-content";
-import { findBrandFont } from "@/lib/brand-content";
+import { buildThemeVars, contrastReport, themeFontSlugs, type ContrastLevel } from "@/lib/theme";
 import type { SiteContent } from "@/lib/content";
 import { BrandForm } from "./BrandForm";
 import { SiteForm } from "./SiteForm";
@@ -59,6 +59,16 @@ function hostname(u: string) {
   }
 }
 
+function ContrastBadge({ level }: { level: ContrastLevel }) {
+  const tone =
+    level === "Fail"
+      ? "bg-[color:var(--app-destructive)]/10 text-[color:var(--app-destructive)]"
+      : level === "AA Large"
+        ? "bg-amber-500/15 text-amber-700"
+        : "bg-[color:var(--app-success)]/10 text-[color:var(--app-success)]";
+  return <span className={`rounded px-1.5 py-0.5 text-[10.5px] font-semibold ${tone}`}>{level}</span>;
+}
+
 /** Live "how it looks" panel — mirrors the active tab's in-progress (unsaved) field values. */
 function PreviewPanel({
   tab,
@@ -69,13 +79,12 @@ function PreviewPanel({
   brand: BrandContent;
   site: SiteContent;
 }) {
-  const headingFont = findBrandFont(brand.fontHeading);
-  const bodyFont = findBrandFont(brand.fontBody);
+  const fontSlugs = themeFontSlugs(brand);
+  const fontKey = fontSlugs.join("|");
 
   useEffect(() => {
-    const slugs = [headingFont?.googleFontsSlug, bodyFont?.googleFontsSlug].filter(Boolean) as string[];
     const added: HTMLLinkElement[] = [];
-    for (const slug of slugs) {
+    for (const slug of fontKey ? fontKey.split("|") : []) {
       const id = `admin-font-preview-${slug}`;
       if (document.getElementById(id)) continue;
       const link = document.createElement("link");
@@ -86,70 +95,101 @@ function PreviewPanel({
       added.push(link);
     }
     return () => added.forEach((l) => l.remove());
-  }, [headingFont?.googleFontsSlug, bodyFont?.googleFontsSlug]);
+  }, [fontKey]);
 
-  const primarySwatch = /^#[0-9a-fA-F]{6}$/.test(brand.colorPrimary) ? brand.colorPrimary : "var(--app-primary)";
-  const accentSwatch = /^#[0-9a-fA-F]{6}$/.test(brand.colorAccent) ? brand.colorAccent : "var(--app-accent)";
-  const headingStack = headingFont ? `'${headingFont.family}', sans-serif` : undefined;
-  const bodyStack = bodyFont ? `'${bodyFont.family}', sans-serif` : undefined;
+  // Same engine as the root layout, scoped to the preview box — what you see is what ships.
+  const themeStyle = useMemo(() => buildThemeVars(brand) as CSSProperties, [brand]);
+  const report = useMemo(() => contrastReport(brand), [brand]);
 
   if (tab === "brand") {
+    const darkLogo = brand.logoDarkUrl || brand.logoUrl;
     return (
       <div className="card-flat space-y-4 p-5">
         <p className="mono-eyebrow text-muted-foreground">Live preview</p>
-        <div className="overflow-hidden rounded-lg border border-border">
+        <div className="overflow-hidden rounded-lg border border-border" style={themeStyle}>
           <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
             <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded bg-background">
               {brand.faviconUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={brand.faviconUrl} alt="" className="h-full w-full object-contain" />
               ) : (
-                <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: primarySwatch }} />
+                <span className="h-2 w-2 rounded-sm bg-[var(--app-primary)]" />
               )}
             </span>
             <span className="truncate text-[12px] text-muted-foreground">
               {clampText(site.siteName || "Your site", 28)}
             </span>
           </div>
-          <div className="space-y-4 bg-background p-5">
-            <div className="flex items-center gap-2">
-              {brand.logoUrl ? (
+
+          {/* Dark band — navbar + hero */}
+          <div className="bg-[var(--brand-canvas-dark)] px-4 pb-5 pt-3 text-white">
+            <div className="flex items-center justify-between">
+              {darkLogo ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={brand.logoUrl} alt="" className="h-6 w-auto max-w-[120px] object-contain" />
+                <img src={darkLogo} alt="" className="h-5 w-auto max-w-[100px] object-contain" />
               ) : (
-                <span className="font-display text-[15px] font-semibold text-foreground" style={{ fontFamily: headingStack }}>
+                <span className="font-display text-[14px] font-medium">
                   {site.siteName || "Your site"}
                 </span>
               )}
+              <span className="btn-base btn-mint !px-2.5 !py-1.5 !text-[10px]">Get started</span>
             </div>
-            <p
-              className="text-[19px] font-medium leading-snug text-foreground"
-              style={{ fontFamily: headingStack }}
-            >
-              Senior engineers, shipped fast.
+            <div className="mt-3 h-[2px] rounded-full" style={{ backgroundImage: "var(--brand-gradient)" }} />
+            <p className="mt-4 font-display text-[19px] font-medium leading-snug">
+              Senior engineers, <span className="brand-gradient-text">shipped fast.</span>
             </p>
-            <p className="text-[13.5px] leading-relaxed text-muted-foreground" style={{ fontFamily: bodyStack }}>
-              This is how body copy reads with the fonts and colors picked on the left — headline above, this
-              paragraph below.
+            <p className="mt-1.5 text-[12.5px] leading-relaxed text-white/65">Hero copy on the dark surface.</p>
+          </div>
+
+          {/* Light band — content */}
+          <div className="space-y-3 bg-background p-4">
+            <p className="text-[13px] leading-relaxed text-muted-foreground">
+              Body copy with an <span className="font-medium text-[var(--brand-orange)] underline underline-offset-2">inline link</span> in the secondary color.
             </p>
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span
-                className="rounded-md px-3 py-1.5 text-[13px] font-medium text-white"
-                style={{ backgroundColor: primarySwatch, fontFamily: bodyStack }}
-              >
-                Primary button
-              </span>
-              <span
-                className="text-[13px] font-medium underline decoration-2 underline-offset-4"
-                style={{ color: accentSwatch, fontFamily: bodyStack }}
-              >
-                Accent link
+            <div className="rounded-[var(--radius-md)] border border-border p-3">
+              <p className="mono-eyebrow text-muted-foreground">Card</p>
+              <p className="mt-1 font-display text-[14px] font-medium text-foreground">Corner radius sample</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="btn-base btn-primary !px-3 !py-2 !text-[11px]">Primary</span>
+              <span className="rounded-[var(--radius-sm)] bg-[var(--app-accent-muted)] px-2 py-1 text-[11px] font-medium text-foreground">
+                Accent tint
               </span>
             </div>
           </div>
         </div>
+
+        <div>
+          <p className="mono-eyebrow text-muted-foreground">Accessibility</p>
+          <ul className="mt-2 space-y-1.5">
+            {report.map((c) => (
+              <li key={c.label} className="flex items-center justify-between gap-3 text-[12.5px]">
+                <span className="flex min-w-0 items-center gap-2">
+                  <span
+                    aria-hidden
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[10px] font-semibold"
+                    style={{ backgroundColor: c.bg, color: c.fg, boxShadow: "inset 0 0 0 1px rgba(0,0,0,0.08)" }}
+                  >
+                    Aa
+                  </span>
+                  <span className="truncate text-foreground/80">{c.label}</span>
+                </span>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <span className="tabular-nums text-muted-foreground">{c.ratio.toFixed(1)}:1</span>
+                  <ContrastBadge level={c.level} />
+                </span>
+              </li>
+            ))}
+          </ul>
+          {report.some((c) => c.level === "Fail") ? (
+            <p className="mt-2 text-[12px] text-destructive">
+              Some pairings are hard to read. Pick a darker or lighter shade before saving.
+            </p>
+          ) : null}
+        </div>
+
         <p className="text-[12.5px] text-muted-foreground">
-          Updates as you type — nothing here is saved until you click{" "}
+          Updates as you type. Nothing is saved until you click{" "}
           <span className="font-medium text-foreground/80">Save brand</span>.
         </p>
       </div>

@@ -8,6 +8,7 @@ import {
 } from "@/lib/content";
 import { getResolvedFeatureFlags } from "@/lib/feature-flags";
 import { AdminPageHeader } from "../AdminPageHeader";
+import { StatusPill } from "@/components/admin/EditorPanels";
 
 function formatRelative(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -287,26 +288,6 @@ function Tile({
   );
 }
 
-function StatusPill({ status }: { status: "draft" | "published" }) {
-  const isPub = status === "published";
-  return (
-    <span
-      className={`mono-label inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
-        isPub
-          ? "bg-[color:var(--brand-mint)] text-[color:var(--app-fg)]"
-          : "bg-muted text-muted-foreground"
-      }`}
-    >
-      <span
-        aria-hidden
-        className={`inline-block h-1.5 w-1.5 rounded-full ${
-          isPub ? "bg-[color:var(--app-success)]" : "bg-[color:var(--app-muted-fg)]"
-        }`}
-      />
-      {isPub ? "LIVE" : "DRAFT"}
-    </span>
-  );
-}
 
 export function MaintenancePill({ on }: { on: boolean }) {
   return (

@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import { freebies } from "@/data/freebies";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,12 +16,13 @@ export async function generateMetadata(): Promise<Metadata> {
       "Free checklists, templates, and guides for product teams and founders: mobile app partner checklist, project brief template, pre-launch checklist, build vs buy guide.",
     alternates: { canonical: `${baseUrl}/freebies` },
     openGraph: {
+      images: [DEFAULT_OG_IMAGE],
       title: "Free Resources | Torq Studio",
       description:
         "Checklists, templates, and guides to help you choose partners, brief projects, and launch apps.",
       url: `${baseUrl}/freebies`,
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 

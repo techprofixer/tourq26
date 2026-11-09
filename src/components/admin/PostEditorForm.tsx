@@ -20,6 +20,7 @@ import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { generateSeoFromContent, stripHtmlToText } from "@/lib/seo-generate";
 import { countWords, readTimeFromWordCount } from "@/lib/blog-server";
 import { slugify } from "@/lib/slug";
+import { Card, Row, SidebarField, StatusPill } from "@/components/admin/EditorPanels";
 
 type PostStatus = "draft" | "published";
 
@@ -627,51 +628,5 @@ function Field({
       <div className="mt-1.5">{children}</div>
       {hint ? <p className="mt-1.5 text-[12.5px] text-muted-foreground">{hint}</p> : null}
     </div>
-  );
-}
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="card-flat p-4">
-      <p className="mono-eyebrow text-muted-foreground">{title}</p>
-      <div className="mt-3 space-y-3">{children}</div>
-    </section>
-  );
-}
-
-function Row({ label, value, control }: { label: string; value?: string | number; control?: React.ReactNode }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <span className="mono-label text-muted-foreground">{label.toUpperCase()}</span>
-      {control ? control : <span className="text-[13px] text-foreground">{value}</span>}
-    </div>
-  );
-}
-
-function SidebarField({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div>
-      <p className="mono-label text-muted-foreground">{label}</p>
-      <div className="mt-1.5">{children}</div>
-    </div>
-  );
-}
-
-export function StatusPill({ status }: { status: PostStatus }) {
-  const isPub = status === "published";
-  return (
-    <span
-      className={`mono-label inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
-        isPub ? "bg-[color:var(--brand-mint)] text-[color:var(--app-fg)]" : "bg-muted text-muted-foreground"
-      }`}
-    >
-      <span
-        aria-hidden
-        className={`inline-block h-1.5 w-1.5 rounded-full ${
-          isPub ? "bg-[color:var(--app-success)]" : "bg-[color:var(--app-muted-fg)]"
-        }`}
-      />
-      {isPub ? "LIVE" : "DRAFT"}
-    </span>
   );
 }

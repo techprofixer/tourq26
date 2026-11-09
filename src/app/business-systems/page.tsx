@@ -4,7 +4,7 @@ import MarketingHeader from "@/components/MarketingHeader";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { readCaseStudies } from "@/lib/case-studies-content";
 import { requireMarketingFeature } from "@/lib/require-marketing-feature";
 import BusinessSystemsAnalytics from "./BusinessSystemsAnalytics";
@@ -18,12 +18,13 @@ export async function generateMetadata(): Promise<Metadata> {
       "Torq Studio builds custom CRM, automation, AI and business systems that help growing businesses replace manual processes with smarter workflows.",
     alternates: { canonical: `${baseUrl}/business-systems` },
     openGraph: {
+      images: [DEFAULT_OG_IMAGE],
       title: "Business Automation & Custom Software for Growing Businesses | Torq Studio",
       description:
         "Torq Studio builds custom CRM, automation, AI and business systems that help growing businesses replace manual processes with smarter workflows.",
       url: `${baseUrl}/business-systems`,
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 

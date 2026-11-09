@@ -3,7 +3,16 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { BrandContent } from "@/lib/brand-content";
-import { BRAND_FONTS } from "@/lib/brand-content";
+import {
+  BRAND_FONTS,
+  DEFAULT_THEME_COLORS,
+  RADIUS_SCALES,
+  THEME_COLOR_FIELDS,
+  THEME_PRESETS,
+  isHexColor,
+  type ThemeColorField,
+  type ThemePreset,
+} from "@/lib/theme";
 import { AiGenerateButton } from "@/components/admin/AiGenerateButton";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { ADMIN_INPUT_CLASS as inputClass } from "@/components/admin/form-styles";
@@ -49,34 +58,76 @@ function Field({
   );
 }
 
+const COLOR_META: Record<ThemeColorField, { label: string; hint: string }> = {
+  colorPrimary: { label: "Primary", hint: "Main CTA buttons and key UI on light backgrounds." },
+  colorAccent: { label: "Accent", hint: "Highlight CTAs on dark bands, badges, the gradient's centre." },
+  colorSecondary: { label: "Secondary", hint: "Links, emphasis text and the gradient's outer stops." },
+  colorDark: { label: "Dark surface", hint: "Background of the hero, navbar and dark CTA bands." },
+};
+
 function ColorField({
-  label,
+  field,
   value,
   onChange,
 }: {
-  label: string;
+  field: ThemeColorField;
   value: string;
   onChange: (v: string) => void;
 }) {
+  const { label, hint } = COLOR_META[field];
+  const fallback = DEFAULT_THEME_COLORS[field];
+  const invalid = value !== "" && !isHexColor(value);
+  const inputId = `brand-${field}`;
   return (
     <div>
-      <label className="block text-sm font-medium text-foreground/90">{label}</label>
+      <div className="flex items-center justify-between gap-2">
+        <label htmlFor={inputId} className="block text-sm font-medium text-foreground/90">
+          {label}
+        </label>
+        {value ? (
+          <button
+            type="button"
+            onClick={() => onChange("")}
+            className="text-[12px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Use default
+          </button>
+        ) : (
+          <span className="text-[12px] text-muted-foreground">Default</span>
+        )}
+      </div>
       <div className="mt-1 flex items-center gap-2">
         <input
           type="color"
-          value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : "#000000"}
+          aria-label={`${label} color picker`}
+          value={isHexColor(value) && value.length === 7 ? value.toLowerCase() : fallback}
           onChange={(e) => onChange(e.target.value)}
-          className="h-10 w-12 shrink-0 rounded border border-border bg-transparent"
+          className="h-10 w-12 shrink-0 cursor-pointer rounded border border-border bg-transparent"
         />
         <input
+          id={inputId}
           type="text"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder="#000000"
-          className="w-full rounded-lg border border-border bg-surface/50 px-4 py-2 text-foreground"
+          onChange={(e) => onChange(e.target.value.trim())}
+          placeholder={fallback}
+          spellCheck={false}
+          aria-invalid={invalid}
+          className={`w-full rounded-lg border bg-surface/50 px-4 py-2 font-mono text-[13px] text-foreground ${
+            invalid ? "border-destructive" : "border-border"
+          }`}
         />
       </div>
+      <p className={`mt-1 text-[12px] ${invalid ? "text-destructive" : "text-muted-foreground"}`}>
+        {invalid ? "Use a hex color, e.g. #2f63b8" : hint}
+      </p>
     </div>
+  );
+}
+
+function presetMatches(preset: ThemePreset, data: BrandContent) {
+  return (
+    THEME_COLOR_FIELDS.every((f) => (data[f] || DEFAULT_THEME_COLORS[f]).toLowerCase() === preset.colors[f]) &&
+    (data.radiusScale || "default") === preset.radiusScale
   );
 }
 
@@ -105,7 +156,24 @@ export function BrandForm({
     setData((prev) => ({ ...prev, [key]: value }));
   };
 
+  const applyPreset = (preset: ThemePreset) => {
+    setSuccess(false);
+    // The default preset clears the fields so the site keeps tracking globals.css.
+    const isDefault = preset.key === "torq";
+    setData((prev) => ({
+      ...prev,
+      ...Object.fromEntries(THEME_COLOR_FIELDS.map((f) => [f, isDefault ? "" : preset.colors[f]])),
+      radiusScale: isDefault ? "" : preset.radiusScale,
+    }));
+  };
+
+  const themeInvalid = THEME_COLOR_FIELDS.some((f) => data[f] !== "" && !isHexColor(data[f]));
+
   const save = async () => {
+    if (themeInvalid) {
+      setError("Fix the highlighted theme colors before saving.");
+      return;
+    }
     setError("");
     setSuccess(false);
     setSaving(true);
@@ -116,7 +184,8 @@ export function BrandForm({
     });
     setSaving(false);
     if (!res.ok) {
-      setError("Save failed");
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      setError(body?.error || "Save failed");
       return;
     }
     setSuccess(true);
@@ -153,14 +222,88 @@ export function BrandForm({
         />
       </section>
 
-      <section className="card-flat space-y-4">
-        <h2 className="display-sm text-foreground">Brand colors</h2>
-        <p className="text-sm text-muted-foreground">
-          Leave blank to keep the site&apos;s current default palette.
-        </p>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <ColorField label="Primary" value={data.colorPrimary} onChange={(v) => update("colorPrimary", v)} />
-          <ColorField label="Accent" value={data.colorAccent} onChange={(v) => update("colorAccent", v)} />
+      <section className="card-flat space-y-6">
+        <div>
+          <h2 className="display-sm text-foreground">Theme</h2>
+          <p className="text-sm text-muted-foreground">
+            Colors and shape for the whole public site. Hover states, button text color and tints are
+            derived automatically. Blank fields use the built-in defaults.
+          </p>
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-foreground/90">Presets</p>
+          <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {THEME_PRESETS.map((preset) => {
+              const active = presetMatches(preset, data);
+              return (
+                <button
+                  key={preset.key}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => applyPreset(preset)}
+                  className={`flex flex-col gap-2 rounded-lg border p-2.5 text-left transition-colors ${
+                    active
+                      ? "border-[color:var(--app-fg)] bg-surface"
+                      : "border-border bg-muted/20 hover:border-foreground/30"
+                  }`}
+                >
+                  <span className="flex h-6 overflow-hidden rounded">
+                    {THEME_COLOR_FIELDS.map((f) => (
+                      <span key={f} className="flex-1" style={{ backgroundColor: preset.colors[f] }} />
+                    ))}
+                  </span>
+                  <span className="text-[13px] font-medium text-foreground">{preset.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="grid gap-5 sm:grid-cols-2">
+          {THEME_COLOR_FIELDS.map((f) => (
+            <ColorField key={f} field={f} value={data[f]} onChange={(v) => update(f, v)} />
+          ))}
+        </div>
+
+        <div>
+          <p className="text-sm font-medium text-foreground/90">Corner radius</p>
+          <div role="radiogroup" aria-label="Corner radius" className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {Object.entries(RADIUS_SCALES).map(([key, scale]) => {
+              const active = (data.radiusScale || "default") === key;
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => update("radiusScale", key === "default" ? "" : key)}
+                  className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 text-[13px] font-medium transition-colors ${
+                    active
+                      ? "border-[color:var(--app-fg)] bg-surface text-foreground"
+                      : "border-border bg-muted/20 text-foreground/75 hover:border-foreground/30"
+                  }`}
+                >
+                  <span
+                    aria-hidden
+                    className="h-5 w-5 shrink-0 border-2 border-current"
+                    style={{ borderRadius: `${scale.tokens.md}px` }}
+                  />
+                  {scale.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex justify-end border-t border-border pt-4">
+          <button
+            type="button"
+            onClick={() => applyPreset(THEME_PRESETS[0])}
+            className="text-[13px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          >
+            Reset theme to defaults
+          </button>
         </div>
       </section>
 
@@ -245,7 +388,7 @@ export function BrandForm({
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {success ? <p className="text-sm text-success">Saved. Changes apply on the next page load.</p> : null}
-      <button type="submit" disabled={saving} className="btn-base btn-primary">
+      <button type="submit" disabled={saving || themeInvalid} className="btn-base btn-primary">
         {saving ? "Saving…" : "Save brand"}
       </button>
     </form>

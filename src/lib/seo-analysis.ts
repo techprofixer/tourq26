@@ -2,7 +2,7 @@ import { countWords } from "@/lib/blog-server";
 
 export type SeoCheckStatus = "pass" | "warn" | "fail";
 
-export type SeoCheckCategory = "keyword" | "content" | "media" | "links" | "structure";
+export type SeoCheckCategory = "keyword" | "content" | "media" | "links" | "structure" | "aeo";
 
 export type SeoCheck = {
   id: string;
@@ -195,7 +195,7 @@ function blockCoverageCheck(blockTypesPresent: string[]): SeoCheck {
   );
 }
 
-export function analyzePageSeo(input: {
+export type PageSeoInput = {
   title: string;
   slug: string;
   metaTitle: string;
@@ -208,7 +208,71 @@ export function analyzePageSeo(input: {
   rawHtml: string;
   siteUrl?: string;
   blockTypesPresent: string[];
-}): SeoCheck[] {
+  /** Answer-engine signals (all optional so older callers keep working). */
+  faqCount?: number;
+  summaryItems?: number;
+  questionHeadings?: number;
+  hasSocialImage?: boolean;
+};
+
+/**
+ * Answer-engine optimisation (AEO/GEO) checks — what makes a page likely to be quoted by
+ * Google AI Overviews, ChatGPT, Perplexity and Claude: an answer-first summary, question-shaped
+ * structure, FAQ content (also emitted as FAQPage JSON-LD), and a share image for rich cards.
+ */
+export function aeoChecks(input: PageSeoInput): SeoCheck[] {
+  const summary = input.summaryItems ?? 0;
+  const faqs = input.faqCount ?? 0;
+  const questions = input.questionHeadings ?? 0;
+  return [
+    check(
+      "aeoSummary",
+      "Answer-first summary",
+      summary >= 2 ? "pass" : summary === 1 ? "warn" : "fail",
+      summary >= 2
+        ? `${summary} key takeaways — short, quotable statements AI answers can lift directly.`
+        : summary === 1
+          ? "Only one takeaway — aim for 2–5 standalone sentences."
+          : "Add a \"Key takeaways\" block near the top with 2–5 direct, factual answers.",
+      "aeo",
+    ),
+    check(
+      "aeoFaq",
+      "FAQ coverage",
+      faqs >= 3 ? "pass" : faqs > 0 ? "warn" : "fail",
+      faqs >= 3
+        ? `${faqs} questions — emitted as FAQPage schema and matched against conversational queries.`
+        : faqs > 0
+          ? `${faqs} question${faqs === 1 ? "" : "s"} — 3–8 real buyer questions match far more AI prompts.`
+          : "No FAQ block — add the questions buyers actually type into ChatGPT or Google.",
+      "aeo",
+    ),
+    check(
+      "aeoQuestionHeadings",
+      "Question-style headings",
+      questions > 0 ? "pass" : "warn",
+      questions > 0
+        ? `${questions} section heading${questions === 1 ? "" : "s"} phrased as a question.`
+        : "Phrase at least one section heading as the question it answers (e.g. \"How long does it take?\").",
+      "aeo",
+    ),
+    check(
+      "aeoSocialImage",
+      "Social share image",
+      input.hasSocialImage ? "pass" : "warn",
+      input.hasSocialImage
+        ? "Custom share image set — used for link previews and as the JSON-LD primary image."
+        : "Using the generic site image — a page-specific image lifts click-through from shares and AI citations.",
+      "aeo",
+    ),
+  ];
+}
+
+export function analyzePageSeo(input: PageSeoInput): SeoCheck[] {
+  return [...coreChecks(input), ...aeoChecks(input)];
+}
+
+function coreChecks(input: PageSeoInput): SeoCheck[] {
   const focusKeyword = input.focusKeyword.trim();
   const metaTitle = (input.metaTitle || input.title).trim();
   const metaDescription = input.metaDescription.trim();

@@ -35,6 +35,9 @@ export const PUT = withAdmin(async (request: NextRequest) => {
         ? body.bingSiteVerification.trim()
         : current.bingSiteVerification,
     robotsNoIndex: typeof body.robotsNoIndex === "boolean" ? body.robotsNoIndex : current.robotsNoIndex,
+    blockAiTraining:
+      typeof body.blockAiTraining === "boolean" ? body.blockAiTraining : current.blockAiTraining,
+    llmsTxtExtra: typeof body.llmsTxtExtra === "string" ? body.llmsTxtExtra : current.llmsTxtExtra,
   };
   await writeSiteContent(data);
   void logActivity({ entityType: "site", action: "updated", summary: "Updated site & SEO settings" });
@@ -42,6 +45,8 @@ export const PUT = withAdmin(async (request: NextRequest) => {
   revalidatePath("/", "layout");
   revalidatePath("/robots.txt");
   revalidatePath("/sitemap.xml");
+  revalidatePath("/llms.txt");
+  revalidatePath("/llms-full.txt");
   // Statically generated detail pages bake siteUrl into their own canonical/OG/JSON-LD at
   // build time — without this they'd keep serving a stale siteUrl until the next deploy.
   for (const pattern of [
@@ -53,6 +58,8 @@ export const PUT = withAdmin(async (request: NextRequest) => {
     "/technologies/[slug]",
     "/tech-news/[slug]",
     "/freebies/[slug]",
+    "/locations/[slug]",
+    "/[...slug]",
   ]) {
     revalidatePath(pattern, "page");
   }

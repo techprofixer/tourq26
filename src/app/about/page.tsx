@@ -4,7 +4,7 @@ import MarketingHeader from "@/components/MarketingHeader";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -15,12 +15,13 @@ export async function generateMetadata(): Promise<Metadata> {
       "Torq Studio is led by senior software engineers who build and advise: mobile apps, websites, AI, and technical consulting for teams worldwide.",
     alternates: { canonical: `${baseUrl}/about` },
     openGraph: {
+      images: [DEFAULT_OG_IMAGE],
       title: "About Torq Studio | Senior Engineers, Build & Consulting",
       description:
         "Mobile, web, AI, and hands-on technical consulting—direct access to engineers who still ship production code.",
       url: `${baseUrl}/about`,
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 

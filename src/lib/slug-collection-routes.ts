@@ -4,6 +4,7 @@ import { withAdmin } from "@/lib/with-admin";
 import { jsonError } from "@/lib/api-response";
 import { slugify } from "@/lib/slug";
 import { logActivity } from "@/lib/activity-log";
+import { submitToIndexNow } from "@/lib/indexnow";
 
 type SlugItem = { slug: string; title: string; status?: string };
 type SlugParams = { params: Promise<{ slug: string }> };
@@ -30,11 +31,19 @@ export type SlugCollectionConfig<T extends SlugItem> = {
  * `collection` serves `/api/admin/content/<kind>`; `item` serves `/api/admin/content/<kind>/[slug]`.
  */
 export function createSlugCollectionRoutes<T extends SlugItem>(cfg: SlugCollectionConfig<T>) {
-  const revalidate = (...slugs: string[]) => {
+  /** Revalidates affected pages + discovery files. `ping` submits the item URLs to IndexNow —
+   *  skipped for edits to drafts, which never had a public URL. */
+  const revalidate = (slugs: string[], ping = true) => {
     for (const p of cfg.alsoRevalidate ?? []) revalidatePath(p);
     revalidatePath(cfg.publicBase);
-    for (const s of new Set(slugs)) revalidatePath(`${cfg.publicBase}/${s}`);
+    revalidatePath("/sitemap.xml");
+    revalidatePath("/llms.txt");
+    revalidatePath("/llms-full.txt");
+    const itemPaths = Array.from(new Set(slugs)).map((s) => `${cfg.publicBase}/${s}`);
+    for (const p of itemPaths) revalidatePath(p);
+    if (ping) void submitToIndexNow([...itemPaths, cfg.publicBase]);
   };
+  const isPublic = (item: SlugItem) => (item.status ?? "published") === "published";
 
   const readBody = async (request: NextRequest): Promise<Record<string, unknown> | null> => {
     const body = await request.json().catch(() => null);
@@ -64,7 +73,7 @@ export function createSlugCollectionRoutes<T extends SlugItem>(cfg: SlugCollecti
         action: "created",
         summary: `Created ${cfg.label} "${created.title}"`,
       });
-      revalidate(slug);
+      revalidate([slug], isPublic(created));
       return NextResponse.json(created);
     }),
   };
@@ -102,15 +111,17 @@ export function createSlugCollectionRoutes<T extends SlugItem>(cfg: SlugCollecti
         action: updated.status === "published" ? "published" : "updated",
         summary: `Updated ${cfg.label} "${updated.title}"`,
       });
-      revalidate(nextSlug, slug);
+      // Ping when the item is (or was) public: covers publish, edit-while-live, and unpublish.
+      revalidate([nextSlug, slug], isPublic(updated) || isPublic(prev));
       return NextResponse.json(updated);
     }),
 
     DELETE: withAdmin(async (_request: NextRequest, { params }: SlugParams) => {
       const { slug } = await params;
       const items = await cfg.read();
+      const removed = items.find((i) => i.slug === slug);
+      if (!removed) return jsonError(404, "Not found");
       const remaining = items.filter((i) => i.slug !== slug);
-      if (remaining.length === items.length) return jsonError(404, "Not found");
       await cfg.write(remaining);
       void logActivity({
         entityType: cfg.entityType,
@@ -118,7 +129,7 @@ export function createSlugCollectionRoutes<T extends SlugItem>(cfg: SlugCollecti
         action: "deleted",
         summary: `Deleted ${cfg.label} "${slug}"`,
       });
-      revalidate(slug);
+      revalidate([slug], isPublic(removed));
       return NextResponse.json({ ok: true });
     }),
   };

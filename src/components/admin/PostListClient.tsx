@@ -6,7 +6,7 @@ import type { BlogPost } from "@/lib/content";
 import type { TechNewsPost } from "@/lib/tech-news-content";
 import { EntityListActions } from "@/components/admin/EntityListActions";
 import { AdminSearchBox } from "@/components/admin/AdminSearchBox";
-import { StatusPill } from "@/components/admin/PostEditorForm";
+import { StatusPill } from "@/components/admin/EditorPanels";
 import { formatShortDate } from "@/lib/date-format";
 
 type Filter = "all" | "published" | "draft";
