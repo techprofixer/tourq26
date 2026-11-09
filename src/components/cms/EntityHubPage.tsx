@@ -3,33 +3,14 @@ import Link from "next/link";
 import MarketingHeader from "@/components/MarketingHeader";
 import Footer from "@/components/Footer";
 import { getSiteUrl } from "@/lib/site-url";
+import { getEntityCatalogCards, ENTITY_HUB_PATH, type EntityCatalogKind } from "@/lib/entity-catalog";
 
-type HubItem = { slug: string; name: string; summary: string | null };
-
-async function loadHubItems(
-  kind: "SERVICE" | "SOLUTION" | "INDUSTRY" | "TECHNOLOGY",
-): Promise<HubItem[]> {
-  try {
-    const { listEntities } = await import("@/lib/cms/entities");
-    const rows = await listEntities(kind);
-    return rows.map((r) => ({
-      slug: r.slug,
-      name: r.name,
-      summary: "summary" in r ? (r.summary as string | null) : null,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-function pathPrefix(kind: "SOLUTION" | "INDUSTRY" | "TECHNOLOGY") {
-  if (kind === "SOLUTION") return "/solutions";
-  if (kind === "INDUSTRY") return "/industries";
-  return "/technologies";
+function pathPrefix(kind: "SOLUTION" | "INDUSTRY" | "TECHNOLOGY" | "LOCATION") {
+  return ENTITY_HUB_PATH[kind];
 }
 
 export function makeHubPage(opts: {
-  kind: "SOLUTION" | "INDUSTRY" | "TECHNOLOGY";
+  kind: Exclude<EntityCatalogKind, "SERVICE">;
   title: string;
   description: string;
   eyebrow: string;
@@ -50,7 +31,7 @@ export function makeHubPage(opts: {
   }
 
   async function Page() {
-    const items = await loadHubItems(opts.kind);
+    const items = await getEntityCatalogCards(opts.kind);
     const prefix = pathPrefix(opts.kind);
 
     return (
@@ -81,12 +62,12 @@ export function makeHubPage(opts: {
                         className="card-flat card-hover group flex h-full flex-col"
                       >
                         <p className="mono-eyebrow text-muted-foreground">
-                          {opts.kind}
+                          {item.category ?? opts.kind}
                         </p>
-                        <h2 className="display-sm mt-4 text-foreground">{item.name}</h2>
-                        {item.summary ? (
+                        <h2 className="display-sm mt-4 text-foreground">{item.title}</h2>
+                        {item.description ? (
                           <p className="mt-3 flex-1 text-[14px] leading-relaxed text-muted-foreground">
-                            {item.summary}
+                            {item.description}
                           </p>
                         ) : null}
                         <span className="mono-button mt-5 inline-flex border-t border-hairline pt-4 text-foreground transition-transform group-hover:translate-x-0.5">

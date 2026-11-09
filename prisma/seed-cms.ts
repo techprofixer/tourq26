@@ -1,5 +1,5 @@
 import { servicePages } from "../src/data/services-content";
-import { prisma } from "../src/lib/hub/prisma";
+import { prisma } from "../src/lib/prisma";
 import type { CmsBlock } from "../src/lib/cms/blocks";
 import { seedCmsEntities } from "../src/lib/cms/entities";
 import { createPage, getPageByPathAnyStatus, updatePage } from "../src/lib/cms/pages";

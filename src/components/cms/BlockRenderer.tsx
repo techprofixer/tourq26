@@ -1,9 +1,64 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { CmsBlock } from "@/lib/cms/blocks";
 import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
+import { getEntityCatalogCards, ENTITY_HUB_PATH, type EntityCatalogKind } from "@/lib/entity-catalog";
 
 function looksLikeHtml(value: string): boolean {
   return /<\/?[a-z][\s\S]*>/i.test(value);
+}
+
+async function EntityGridBlock({
+  kind,
+  eyebrow,
+  heading,
+}: {
+  kind: EntityCatalogKind;
+  eyebrow?: string;
+  heading?: string;
+}) {
+  const cards = await getEntityCatalogCards(kind);
+  if (cards.length === 0) return null;
+  const prefix = ENTITY_HUB_PATH[kind];
+
+  return (
+    <section className="band-light border-t border-hairline">
+      <div className="mx-auto w-full max-w-[1280px] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-[80px]">
+        {eyebrow || heading ? (
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            {eyebrow ? <p className="mono-eyebrow text-muted-foreground">{eyebrow}</p> : null}
+            {heading ? <p className="display-md max-w-md text-foreground">{heading}</p> : null}
+          </div>
+        ) : null}
+        <ul className="mt-10 grid gap-4 sm:grid-cols-2">
+          {cards.map((c) => (
+            <li key={c.slug}>
+              <Link
+                href={`${prefix}/${c.slug}`}
+                className="card-flat card-hover group flex h-full flex-col"
+              >
+                <div className="flex items-center justify-between">
+                  <p className="mono-eyebrow text-muted-foreground">{c.category ?? kind}</p>
+                  {c.icon ? (
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-sm)] border border-hairline bg-background">
+                      <Image src={c.icon} alt="" width={20} height={20} className="opacity-80" unoptimized />
+                    </span>
+                  ) : null}
+                </div>
+                <h3 className="display-md mt-6 text-foreground">{c.title}</h3>
+                {c.description ? (
+                  <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">{c.description}</p>
+                ) : null}
+                <span className="mono-button mt-6 inline-flex items-center gap-1 border-t border-hairline pt-4 text-foreground transition-transform group-hover:translate-x-0.5">
+                  VIEW →
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
 }
 
 function CtaButtons({
@@ -71,19 +126,38 @@ export function BlockRenderer({ blocks }: { blocks: CmsBlock[] }) {
             return (
               <section key={block.id} className="band-light border-t border-hairline">
                 <div className="mx-auto w-full max-w-[1280px] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-[80px]">
-                  <div className="max-w-[680px]">
-                    {block.eyebrow ? (
-                      <p className="mono-eyebrow text-muted-foreground">{block.eyebrow}</p>
+                  <div
+                    className={
+                      block.image
+                        ? "grid gap-10 lg:grid-cols-12 lg:items-start"
+                        : "max-w-[680px]"
+                    }
+                  >
+                    <div className={block.image ? "lg:col-span-6" : undefined}>
+                      {block.eyebrow ? (
+                        <p className="mono-eyebrow text-muted-foreground">{block.eyebrow}</p>
+                      ) : null}
+                      {block.heading ? (
+                        <h2 className="display-lg mt-4 text-foreground">{block.heading}</h2>
+                      ) : null}
+                      <div
+                        className="blog-article mt-5 max-w-none"
+                        dangerouslySetInnerHTML={{
+                          __html: sanitizeBlogHtml(block.bodyHtml),
+                        }}
+                      />
+                    </div>
+                    {block.image ? (
+                      <figure className="relative aspect-[4/3] w-full overflow-hidden rounded-[var(--radius-sm)] border border-hairline lg:col-span-6">
+                        <Image
+                          src={block.image.url}
+                          alt={block.image.alt || ""}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 1024px) 100vw, 50vw"
+                        />
+                      </figure>
                     ) : null}
-                    {block.heading ? (
-                      <h2 className="display-lg mt-4 text-foreground">{block.heading}</h2>
-                    ) : null}
-                    <div
-                      className="blog-article mt-5 max-w-none"
-                      dangerouslySetInnerHTML={{
-                        __html: sanitizeBlogHtml(block.bodyHtml),
-                      }}
-                    />
                   </div>
                 </div>
               </section>
@@ -108,6 +182,16 @@ export function BlockRenderer({ blocks }: { blocks: CmsBlock[] }) {
                   </ul>
                 </div>
               </section>
+            );
+
+          case "entityGrid":
+            return (
+              <EntityGridBlock
+                key={block.id}
+                kind={block.kind}
+                eyebrow={block.eyebrow}
+                heading={block.heading}
+              />
             );
 
           case "faq":

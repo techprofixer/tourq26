@@ -5,7 +5,7 @@ import { AdminPageHeader } from "../AdminPageHeader";
 
 function formatDate(iso: string) {
   try {
-    return new Date(iso).toLocaleDateString(undefined, {
+    return new Date(iso).toLocaleString(undefined, {
       dateStyle: "medium",
       timeStyle: "short",
     });
@@ -34,29 +34,43 @@ export default async function AdminContactPage() {
       {submissions.length === 0 ? (
         <p className="mt-8 text-muted-foreground">No submissions yet.</p>
       ) : (
-        <div className="mt-8 space-y-4">
-          {submissions.map((s) => (
-            <article key={s.id} className="card-flat">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-medium text-foreground">{s.name}</h2>
-                <time className="mono-label text-muted-foreground" dateTime={s.createdAt}>
-                  {formatDate(s.createdAt).toUpperCase()}
+        <section className="mt-8">
+          <h2 className="text-lg font-semibold text-foreground">
+            Submissions <span className="text-muted-foreground">({submissions.length})</span>
+          </h2>
+          <ul className="mt-4 space-y-4">
+            {submissions.map((s) => (
+              <li
+                key={s.id}
+                className="flex flex-col gap-3 rounded-xl border border-border/50 bg-muted/30 p-4 sm:flex-row sm:items-start sm:justify-between"
+              >
+                <div className="min-w-0 pr-4">
+                  <p className="font-medium text-foreground">{s.name}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    <a href={`mailto:${s.email}`} className="text-foreground underline underline-offset-2">
+                      {s.email}
+                    </a>
+                    {s.company ? ` · ${s.company}` : null}
+                  </p>
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground/90">
+                    {s.message}
+                  </p>
+                  {s.source || s.medium || s.campaign ? (
+                    <p className="mt-2 font-mono text-xs uppercase tracking-wide text-muted-foreground">
+                      {[s.source, s.medium, s.campaign].filter(Boolean).join(" / ")}
+                    </p>
+                  ) : null}
+                </div>
+                <time
+                  className="shrink-0 font-mono text-xs uppercase tracking-wide text-muted-foreground"
+                  dateTime={s.createdAt}
+                >
+                  {formatDate(s.createdAt)}
                 </time>
-              </div>
-              <p className="mt-1 text-[14px]">
-                <a href={`mailto:${s.email}`} className="text-foreground underline underline-offset-2">
-                  {s.email}
-                </a>
-              </p>
-              {s.company ? (
-                <p className="mt-1 text-[13px] text-muted-foreground">{s.company}</p>
-              ) : null}
-              <p className="mt-4 whitespace-pre-wrap text-[14px] leading-relaxed text-foreground/90">
-                {s.message}
-              </p>
-            </article>
-          ))}
-        </div>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );

@@ -38,44 +38,54 @@ export default async function ContactPage() {
       <JsonLd data={breadcrumbLd} />
       <MarketingHeader />
       <main>
-        {/* Hero band — dark */}
+        {/* Hero band — dark, form surfaced above the fold */}
         <section className="hero-band">
-          <div className="relative z-10 mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-10 px-4 pt-32 pb-20 sm:px-6 sm:pt-36 sm:pb-24 lg:grid-cols-12 lg:gap-12 lg:px-8 lg:pt-40 lg:pb-[80px]">
-            <div className="lg:col-span-7">
+          <div className="relative z-10 mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-12 px-4 pt-28 pb-16 sm:px-6 sm:pt-32 sm:pb-20 lg:grid-cols-12 lg:gap-10 lg:px-8 lg:pt-36 lg:pb-20">
+            <div className="lg:col-span-6">
               <p className="mono-eyebrow text-white/55">GET IN TOUCH</p>
               <h1 className="display-xxl mt-5 text-white">
                 Tell us what you&apos;re building.
               </h1>
-              <p className="mt-6 max-w-2xl text-[17px] leading-[1.5] text-white/70">
-                Free 30-min consultation. No commitment. Use the form for structured
-                enquiries, or email{" "}
+              <p className="mt-6 max-w-lg text-[17px] leading-[1.5] text-white/70">
+                Free 30-min consultation, no commitment. Fill in the form and
+                we&apos;ll reply within 24 hours — or email{" "}
                 <a
-                  href="mailto:hello@torqstudio.com"
+                  href="mailto:connect@torqstudio.com"
                   className="text-white underline underline-offset-4 decoration-white/40 hover:decoration-white"
                 >
-                  hello@torqstudio.com
+                  connect@torqstudio.com
                 </a>{" "}
-                with attachments and background links.
+                directly with attachments and background links.
               </p>
+              <dl className="mt-10 flex flex-wrap gap-x-8 gap-y-5">
+                {[
+                  ["RESPONSE", "Within 24 hours"],
+                  ["OVERLAP", "India · MENA · EU"],
+                  ["NDA", "Standard or yours — happy to sign"],
+                ].map(([term, desc]) => (
+                  <div key={term}>
+                    <dt className="mono-label text-white/45">{term}</dt>
+                    <dd className="mt-1 text-[14px] text-white">{desc}</dd>
+                  </div>
+                ))}
+              </dl>
             </div>
-            <ul className="flex flex-col gap-4 text-[14px] text-white/70 lg:col-span-5 lg:items-end">
-              <li className="flex items-baseline gap-3">
-                <span className="mono-label text-white/45">RESPONSE</span>
-                <span className="text-white">Within 24 hours</span>
-              </li>
-              <li className="flex items-baseline gap-3">
-                <span className="mono-label text-white/45">OVERLAP</span>
-                <span className="text-white">India · MENA · EU</span>
-              </li>
-              <li className="flex items-baseline gap-3">
-                <span className="mono-label text-white/45">NDA</span>
-                <span className="text-white">Standard or yours — happy to sign</span>
-              </li>
-            </ul>
+
+            <div className="lg:col-span-6">
+              <div className="rounded-[4px] border border-black/5 bg-white p-6 shadow-[0_24px_64px_-24px_rgba(0,0,0,0.55)] sm:p-8">
+                <p className="mono-eyebrow text-muted-foreground">SEND A MESSAGE</p>
+                <h2 className="display-sm mt-2 text-foreground">
+                  We read every enquiry ourselves.
+                </h2>
+                <div className="mt-6">
+                  <ContactForm />
+                </div>
+              </div>
+            </div>
           </div>
         </section>
 
-        {/* Form + context */}
+        {/* What to include + quick answers */}
         <section className="band-light border-t border-hairline">
           <div className="mx-auto w-full max-w-[1280px] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-[80px]">
             <div className="grid gap-10 lg:grid-cols-12 lg:gap-12">
@@ -111,14 +121,36 @@ export default async function ContactPage() {
               </aside>
 
               <div className="lg:col-span-7">
-                <ContactForm />
-                <p className="mt-10 border-t border-hairline pt-6 text-[14px] text-muted-foreground">
+                <p className="mono-eyebrow text-muted-foreground">BEFORE YOU WRITE</p>
+                <h2 className="display-lg mt-4 text-foreground">Quick answers.</h2>
+                <dl className="mt-6 divide-y divide-hairline">
+                  {[
+                    [
+                      "Do you sign NDAs before we share details?",
+                      "Yes — send yours or ask for our standard NDA and we'll turn it around before the first call.",
+                    ],
+                    [
+                      "Is there a minimum budget?",
+                      "No fixed minimum, but most engagements start around a few weeks of senior engineering time. Say what you have in mind and we'll tell you plainly if it's a fit.",
+                    ],
+                    [
+                      "Can we start smaller than a full build?",
+                      "Yes — a short paid discovery (architecture review, estimate, or risk assessment) is a common way to de-risk a larger commitment before you fund it.",
+                    ],
+                  ].map(([q, a]) => (
+                    <div key={q} className="py-5 first:pt-0">
+                      <dt className="text-[16px] font-medium text-foreground">{q}</dt>
+                      <dd className="mt-2 text-[15px] leading-[1.55] text-muted-foreground">{a}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <p className="mt-6 border-t border-hairline pt-6 text-[14px] text-muted-foreground">
                   Prefer email?{" "}
                   <a
-                    href="mailto:hello@torqstudio.com"
+                    href="mailto:connect@torqstudio.com"
                     className="text-foreground underline underline-offset-4 decoration-[var(--app-hairline)] hover:decoration-[var(--app-fg)]"
                   >
-                    hello@torqstudio.com
+                    connect@torqstudio.com
                   </a>{" "}
                   · We respond within 24 hours.
                 </p>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { readFooterContent } from "@/lib/footer-content";
 
 /**
  * Footer (DESIGN.md → footer + footer-wordmark-banner).
@@ -8,48 +9,8 @@ import Link from "next/link";
  * tint).
  */
 
-const navColumns: { eyebrow: string; links: { href: string; label: string }[] }[] = [
-  {
-    eyebrow: "PLATFORM",
-    links: [
-      { href: "/services/mobile-app-development", label: "Mobile applications" },
-      { href: "/services/web-development", label: "Web & APIs" },
-      { href: "/services/ai-solutions", label: "AI workflows" },
-      { href: "/services/remote-it", label: "Remote engineering" },
-      { href: "/services/technical-consulting", label: "Advisory" },
-    ],
-  },
-  {
-    eyebrow: "EVIDENCE",
-    links: [
-      { href: "/case-studies", label: "Case studies" },
-      { href: "/blog", label: "Blog & guides" },
-      { href: "/freebies", label: "Free templates" },
-      { href: "/tech-news", label: "Tech news" },
-      { href: "/#testimonials", label: "Client voices" },
-    ],
-  },
-  {
-    eyebrow: "COMPANY",
-    links: [
-      { href: "/about", label: "About Torq Studio" },
-      { href: "/#why-us", label: "Why us" },
-      { href: "/contact", label: "Contact sales" },
-      { href: "/privacy", label: "Privacy" },
-      { href: "/terms", label: "Terms" },
-    ],
-  },
-  {
-    eyebrow: "GET STARTED",
-    links: [
-      { href: "/contact", label: "Book a consultation" },
-      { href: "mailto:hello@torqstudio.com", label: "hello@torqstudio.com" },
-      { href: "/services", label: "Service catalogue" },
-    ],
-  },
-];
-
-export default function Footer() {
+export default async function Footer() {
+  const { blurb, tagline, columns: navColumns } = await readFooterContent();
   const year = new Date().getFullYear();
 
   return (
@@ -73,9 +34,7 @@ export default function Footer() {
               torq<span className="brand-gradient-text">.studio</span>
             </Link>
             <p className="mt-4 max-w-sm text-[15px] leading-[1.5] text-muted-foreground">
-              Senior software engineers for mobile applications, web platforms, public
-              APIs, and grounded AI workflows. Clear scope, direct communication,
-              production-quality delivery — every engagement.
+              {blurb}
             </p>
             <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link href="/contact" className="btn-base btn-primary">
@@ -113,7 +72,7 @@ export default function Footer() {
             © {year} TORQ STUDIO · ALL RIGHTS RESERVED
           </p>
           <p className="mono-label text-muted-foreground">
-            BASED IN MUMBAI · OVERLAP WITH INDIA / EU / MENA
+            {tagline}
           </p>
         </div>
       </div>

@@ -1,22 +1,22 @@
 ---
 version: alpha
-name: Together AI-design-analysis
-description: An inspired interpretation of Together AI's design language — an AI infrastructure platform whose surface alternates between near-black hero bands (with a three-color orange-magenta-periwinkle gradient as the single piece of brand chrome) and bright white research / pricing / docs bands, knit together by a custom display sans and an uppercase mono eyebrow face.
+name: Torq-design-system
+description: Torq's brand design language — an alternating-band system whose surface moves between near-black hero bands (with a Torq Blue → Torq Yellow gradient as the single piece of brand chrome) and bright white research / pricing / docs bands, knit together by a custom display sans and an uppercase mono eyebrow face.
 
 colors:
-  primary: "#000000"
+  primary: "#050505"
   on-primary: "#ffffff"
-  ink: "#000000"
-  body: "#959494"
-  hairline: "#959494"
+  ink: "#050505"
+  body: "#4B5563"
+  hairline: "#F3F4F6"
   canvas: "#ffffff"
-  canvas-dark: "#010120"
-  surface-dark-soft: "#313641"
+  canvas-dark: "#050505"
+  surface-dark-soft: "#1F1F1F"
   on-dark: "#ffffff"
-  accent-orange: "#fc4c02"
-  accent-magenta: "#ef2cc1"
-  accent-periwinkle: "#bdbbff"
-  accent-mint: "#c8f6f9"
+  accent-orange: "#2F63B8"
+  accent-magenta: "#FFD100"
+  accent-periwinkle: "#2F63B8"
+  accent-mint: "#FFD100"
 
 typography:
   display-xxl:

@@ -113,8 +113,8 @@ export default async function TermsPage() {
           </h2>
           <p className="mt-2 text-muted-foreground leading-relaxed">
             For questions about these terms, contact us at{" "}
-            <a href="mailto:hello@torqstudio.com" className="text-primary hover:underline">
-              hello@torqstudio.com
+            <a href="mailto:connect@torqstudio.com" className="text-primary hover:underline">
+              connect@torqstudio.com
             </a>.
           </p>
         </div>

@@ -2,9 +2,11 @@ export const FEATURE_FLAG_KEYS = [
   "maintenance_mode",
   "marketing_contact_form",
   "marketing_blog",
-  "nav_tools",
   "floating_whatsapp",
+  "floating_chat_assistant",
   "dev_tools_code_playground",
+  "business_systems_audit",
+  "torqos_landing",
 ] as const;
 
 export type FeatureFlagKey = (typeof FEATURE_FLAG_KEYS)[number];
@@ -45,15 +47,6 @@ export const FEATURE_FLAG_DEFINITIONS: readonly FeatureFlagDefinition[] = [
     envOverride: "FF_MARKETING_BLOG",
   },
   {
-    key: "nav_tools",
-    label: "Nav: Dev tools link",
-    description:
-      "Header link to the standalone Torq DevTools app. Requires NEXT_PUBLIC_DEV_TOOLS_URL (origin) to be set in env.",
-    category: "Marketing",
-    defaultEnabled: true,
-    envOverride: "FF_NAV_TOOLS",
-  },
-  {
     key: "floating_whatsapp",
     label: "Floating WhatsApp button",
     description: "Global floating chat button (requires NEXT_PUBLIC_WHATSAPP_NUMBER).",
@@ -62,13 +55,39 @@ export const FEATURE_FLAG_DEFINITIONS: readonly FeatureFlagDefinition[] = [
     envOverride: "FF_FLOATING_WHATSAPP",
   },
   {
+    key: "floating_chat_assistant",
+    label: "Floating AI chat assistant",
+    description:
+      "Global floating chat widget answering visitor questions from site content (RAG over services, FAQs, blog, case studies). Requires GEMINI_API_KEY.",
+    category: "Marketing",
+    defaultEnabled: false,
+    envOverride: "FF_FLOATING_CHAT_ASSISTANT",
+  },
+  {
     key: "dev_tools_code_playground",
     label: "API: Playground runs on /api/run",
     description:
-      "When off, POST /api/run with source=playground returns 403 (legacy clients). Interview hub runs without source=playground are unchanged. The public playground lives on the standalone Torq DevTools deployment.",
+      "When off, POST /api/run with source=playground returns 403 (legacy clients). Non-playground runs are unchanged. The public playground lives on the standalone Torq DevTools deployment.",
     category: "Site",
     defaultEnabled: true,
     envOverride: "FF_DEV_TOOLS_CODE_PLAYGROUND",
+  },
+  {
+    key: "business_systems_audit",
+    label: "Business Systems Audit (Meta Ads landing page)",
+    description:
+      "/business-systems, /business-systems/audit, and POST /api/business-systems/audit. Turn off between ad flights to stop accepting submissions without deleting the pages.",
+    category: "Marketing",
+    defaultEnabled: true,
+    envOverride: "FF_BUSINESS_SYSTEMS_AUDIT",
+  },
+  {
+    key: "torqos_landing",
+    label: "torqOS product landing page",
+    description: "/torqos — the torqOS business operating system product page.",
+    category: "Marketing",
+    defaultEnabled: true,
+    envOverride: "FF_TORQOS_LANDING",
   },
 ] as const;
 

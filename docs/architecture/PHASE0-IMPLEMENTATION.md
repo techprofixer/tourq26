@@ -7,7 +7,6 @@
 - Admin: `/admin/cms/pages`, `/admin/cms/pages/new`, `/admin/cms/pages/[id]`, `/admin/cms/entities`
 - APIs: `/api/admin/cms/pages`, `/api/admin/cms/pages/[id]`, `/api/admin/cms/entities`
 - Public: CMS-first `/services/[slug]` (static fallback), plus `/solutions|industries|technologies/[slug]`
-- Seed: `npm run db:seed:cms` (entities + migrate legacy service pages)
 
 ## Activate MongoDB
 
@@ -15,15 +14,11 @@
    ```
    DATABASE_URL=mongodb+srv://USER:PASS@cluster.mongodb.net/torqstudio?retryWrites=true&w=majority
    ```
-2. Push schema (non-destructive for existing Hub collections):
+2. Push schema:
    ```
    npx prisma db push
    ```
-3. Seed CMS:
-   ```
-   npm run db:seed:cms
-   ```
-4. Restart `npm run dev`
+3. Restart `npm run dev`
 
 ## Next phases
 

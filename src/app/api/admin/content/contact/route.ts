@@ -1,10 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireAdmin } from "@/lib/auth";
+import { withAdmin } from "@/lib/with-admin";
 import { readContactSubmissions } from "@/lib/content";
 
-export async function GET() {
-  const ok = await requireAdmin();
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const GET = withAdmin(async () => {
   const submissions = await readContactSubmissions();
   return NextResponse.json(submissions);
-}
+});

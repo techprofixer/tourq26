@@ -5,14 +5,26 @@ import { notFound } from "next/navigation";
 import MarketingHeader from "@/components/MarketingHeader";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
-import { caseStudies, getCaseStudyBySlug } from "@/data/case-studies";
+import { readCaseStudies, getCaseStudyBySlug } from "@/lib/case-studies-content";
 import { readSiteContent } from "@/lib/content";
 import { getSiteUrl } from "@/lib/site-url";
 import { breadcrumbListJsonLd, caseStudyArticleJsonLd } from "@/lib/seo";
+import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
+import { RelatedContentSection } from "@/components/marketing/RelatedContentSection";
+import { getRelatedContentGroups } from "@/lib/related-links";
+
+// Safety net: on-demand revalidation covers CMS/site-setting edits, but this bounds
+// staleness to an hour even if a revalidatePath call is ever missed.
+export const revalidate = 3600;
 
 export async function generateStaticParams() {
-  return caseStudies.map((c) => ({ slug: c.slug }));
+  try {
+    const caseStudies = await readCaseStudies();
+    return caseStudies.map((c) => ({ slug: c.slug }));
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({
@@ -21,7 +33,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const study = getCaseStudyBySlug(slug);
+  const study = await getCaseStudyBySlug(slug);
   if (!study) return { title: "Case study not found", robots: { index: false, follow: false } };
   const site = await readSiteContent();
   const metaTitle = study.seoTitle?.trim() || study.title;
@@ -66,10 +78,14 @@ export default async function CaseStudyDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const study = getCaseStudyBySlug(slug);
+  const study = await getCaseStudyBySlug(slug);
   if (!study) notFound();
 
-  const [site, siteUrl] = await Promise.all([readSiteContent(), getSiteUrl()]);
+  const [site, siteUrl, relatedGroups] = await Promise.all([
+    readSiteContent(),
+    getSiteUrl(),
+    getRelatedContentGroups({ path: `/case-studies/${study.slug}`, caseStudySlug: study.slug }),
+  ]);
   const articleLd = caseStudyArticleJsonLd({
     siteUrl,
     slug: study.slug,
@@ -183,7 +199,7 @@ export default async function CaseStudyDetailPage({
               </aside>
               <article
                 className="blog-article max-w-none lg:col-span-8 lg:max-w-[680px]"
-                dangerouslySetInnerHTML={{ __html: study.body }}
+                dangerouslySetInnerHTML={{ __html: sanitizeBlogHtml(study.body) }}
               />
             </div>
           </div>
@@ -198,6 +214,8 @@ export default async function CaseStudyDetailPage({
             "If you are comparing partners for mobile, web, AI, or API work, start with the relevant service page for scope models and FAQs, then use the contact form to share constraints. We will suggest a proportionate next step rather than a one-size-fits-all proposal.",
           ]}
         />
+
+        <RelatedContentSection groups={relatedGroups} />
 
         {/* Closing CTA — dark band */}
         <section className="hero-band border-t border-[var(--brand-hairline-on-dark)]">

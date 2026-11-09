@@ -2,11 +2,16 @@
 
 type Props = {
   siteUrl: string;
-  slug: string;
+  /** Full path including leading slash, e.g. `/tech-news/my-story`. Preferred over `slug`. */
+  path?: string;
+  /** @deprecated Prefer `path`. Kept for older callers — treated as `/blog/{slug}`. */
+  slug?: string;
   title: string;
   description: string;
   coverImage?: string;
   siteName: string;
+  /** Eyebrow label on the gradient fallback card, e.g. "BLOG" or "TECH NEWS". */
+  kicker?: string;
 };
 
 function clamp(s: string, n: number) {
@@ -23,14 +28,17 @@ function hostname(u: string) {
 
 export function SocialPreview({
   siteUrl,
+  path,
   slug,
   title,
   description,
   coverImage,
   siteName,
+  kicker = "BLOG",
 }: Props) {
   const base = siteUrl.replace(/\/$/, "");
-  const url = `${base}/blog/${slug || "your-slug"}`;
+  const resolvedPath = path ?? `/blog/${slug || "your-slug"}`;
+  const url = `${base}${resolvedPath}`;
 
   return (
     <div className="card-flat p-4">
@@ -52,7 +60,7 @@ export function SocialPreview({
                 style={{ background: "var(--brand-gradient)", opacity: 0.55 }}
               />
               <div className="relative z-10 flex h-full w-full flex-col justify-end p-5 text-white">
-                <p className="mono-eyebrow text-white/70">{siteName.toUpperCase()} · BLOG</p>
+                <p className="mono-eyebrow text-white/70">{siteName.toUpperCase()} · {kicker}</p>
                 <p className="mt-2 font-display text-[20px] font-medium leading-tight">
                   {clamp(title || "Your post title", 80)}
                 </p>

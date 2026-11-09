@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { caseStudies } from "@/data/case-studies";
+import type { CaseStudy } from "@/lib/case-studies-content";
+import type { HomeContent } from "@/lib/home-content";
 
 /**
  * Case studies section (DESIGN.md → article-card).
@@ -8,7 +9,19 @@ import { caseStudies } from "@/data/case-studies";
  * mono eyebrow tag, display-md title, body summary, mono caption byline.
  */
 
-export default function CaseStudies() {
+export type CaseStudiesProps = Pick<
+  HomeContent,
+  "caseStudiesEyebrow" | "caseStudiesHeading" | "caseStudiesIntro"
+> & {
+  items: CaseStudy[];
+};
+
+export default function CaseStudies({
+  caseStudiesEyebrow,
+  caseStudiesHeading,
+  caseStudiesIntro,
+  items,
+}: CaseStudiesProps) {
   return (
     <section
       id="case-studies"
@@ -18,15 +31,14 @@ export default function CaseStudies() {
       <div className="mx-auto w-full max-w-[1280px] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-[80px]">
         <header className="grid gap-6 lg:grid-cols-12">
           <div className="lg:col-span-8">
-            <p className="mono-eyebrow text-muted-foreground">PROOF IN PRACTICE</p>
+            <p className="mono-eyebrow text-muted-foreground">{caseStudiesEyebrow}</p>
             <h2 id="case-studies-heading" className="display-xl mt-4 text-foreground">
-              Outcomes from real engagements.
+              {caseStudiesHeading}
             </h2>
           </div>
           <div className="flex flex-col justify-end gap-3 lg:col-span-4">
             <p className="text-[16px] leading-[1.5] text-muted-foreground">
-              Each write-up covers context, constraints, what we shipped, and what we
-              changed about the system after launch.
+              {caseStudiesIntro}
             </p>
             <Link
               href="/case-studies"
@@ -38,7 +50,7 @@ export default function CaseStudies() {
         </header>
 
         <ul className="mt-10 grid gap-4 sm:grid-cols-2">
-          {caseStudies.map((study) => (
+          {items.map((study) => (
             <li key={study.slug}>
               <article className="card-flat card-hover group flex h-full flex-col p-0 overflow-hidden">
                 <Link

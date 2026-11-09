@@ -4,29 +4,29 @@ import Image from "next/image";
 import MarketingHeader from "@/components/MarketingHeader";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
-import { servicePages } from "@/data/services-content";
+import { BlockRenderer } from "@/components/cms/BlockRenderer";
 import { getSiteUrl } from "@/lib/site-url";
+import { readSiteContent } from "@/lib/content";
 import { breadcrumbListJsonLd, webPageJsonLd } from "@/lib/seo";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
+import { getEntityCatalogCards } from "@/lib/entity-catalog";
+import { getPublishedPageByPath, getPageBlocks } from "@/lib/cms/pages";
+import { buildPageJsonLd, buildPageMetadata } from "@/lib/cms/metadata";
 
-const iconMap: Record<string, string> = {
-  "mobile-app-development": "/images/icons/mobile.svg",
-  "web-development": "/images/icons/web.svg",
-  "ai-solutions": "/images/icons/ai.svg",
-  "remote-it": "/images/icons/team.svg",
-  "technical-consulting": "/images/icons/web.svg",
-};
-
-const categoryMap: Record<string, string> = {
-  "mobile-app-development": "MOBILE",
-  "web-development": "WEB / API",
-  "ai-solutions": "AI",
-  "remote-it": "REMOTE IT",
-  "technical-consulting": "CONSULTING",
-};
+// Safety net: on-demand revalidation covers CMS/entity edits, but this bounds staleness
+// to an hour even if a revalidatePath call is ever missed.
+export const revalidate = 3600;
 
 export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = await getSiteUrl();
+
+  try {
+    const cms = await getPublishedPageByPath("/services");
+    if (cms) return buildPageMetadata(cms, baseUrl);
+  } catch {
+    /* DB unavailable — fall back */
+  }
+
   return {
     title: "Services",
     description:
@@ -43,7 +43,30 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function ServicesIndexPage() {
-  const siteUrl = await getSiteUrl();
+  try {
+    const cms = await getPublishedPageByPath("/services");
+    if (cms) {
+      const [siteUrl, site] = await Promise.all([getSiteUrl(), readSiteContent()]);
+      const schemas = buildPageJsonLd(cms, siteUrl, site.siteName);
+      const blocks = getPageBlocks(cms);
+      return (
+        <div className="min-h-screen bg-background">
+          {schemas.map((data, i) => (
+            <JsonLd key={i} data={data} />
+          ))}
+          <MarketingHeader />
+          <main>
+            <BlockRenderer blocks={blocks} />
+          </main>
+          <Footer />
+        </div>
+      );
+    }
+  } catch {
+    /* fall through to static */
+  }
+
+  const [siteUrl, catalog] = await Promise.all([getSiteUrl(), getEntityCatalogCards("SERVICE")]);
   const breadcrumbLd = breadcrumbListJsonLd(siteUrl, [
     { name: "Home", path: "/" },
     { name: "Services", path: "/services" },
@@ -104,12 +127,12 @@ export default async function ServicesIndexPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <p className="mono-eyebrow text-muted-foreground">SERVICE CATALOGUE</p>
               <p className="display-md max-w-md text-foreground">
-                Five disciplines — same senior engineers across all of them.
+                {catalog.length} disciplines — same senior engineers across all of them.
               </p>
             </div>
 
             <ul className="mt-10 grid gap-4 sm:grid-cols-2">
-              {servicePages.map((p) => (
+              {catalog.map((p) => (
                 <li key={p.slug}>
                   <Link
                     href={`/services/${p.slug}`}
@@ -117,11 +140,11 @@ export default async function ServicesIndexPage() {
                   >
                     <div className="flex items-center justify-between">
                       <p className="mono-eyebrow text-muted-foreground">
-                        {categoryMap[p.slug] ?? "SERVICE"}
+                        {p.category ?? "SERVICE"}
                       </p>
                       <span className="inline-flex h-10 w-10 items-center justify-center rounded-[var(--radius-sm)] border border-hairline bg-background">
                         <Image
-                          src={iconMap[p.slug] ?? "/images/icons/web.svg"}
+                          src={p.icon ?? "/images/icons/web.svg"}
                           alt=""
                           width={20}
                           height={20}
@@ -131,9 +154,11 @@ export default async function ServicesIndexPage() {
                       </span>
                     </div>
                     <h2 className="display-md mt-6 text-foreground">{p.title}</h2>
-                    <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
-                      {p.description}
-                    </p>
+                    {p.description ? (
+                      <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
+                        {p.description}
+                      </p>
+                    ) : null}
                     <span className="mono-button mt-6 inline-flex items-center gap-1 border-t border-hairline pt-4 text-foreground transition-transform group-hover:translate-x-0.5">
                       READ SERVICE OVERVIEW →
                     </span>

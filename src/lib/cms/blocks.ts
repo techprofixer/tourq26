@@ -18,6 +18,12 @@ export const contentSectionBlockSchema = z.object({
   eyebrow: z.string().optional(),
   heading: z.string().optional(),
   bodyHtml: z.string().min(1),
+  image: z
+    .object({
+      url: z.string().min(1),
+      alt: z.string().optional(),
+    })
+    .optional(),
 });
 
 export const faqBlockSchema = z.object({
@@ -61,12 +67,22 @@ export const featureGridBlockSchema = z.object({
     .min(1),
 });
 
+export const entityGridBlockSchema = z.object({
+  type: z.literal("entityGrid"),
+  id: z.string().min(1),
+  /// Which taxonomy table to list — cards are pulled live from Admin → CMS → Entities.
+  kind: z.enum(["SERVICE", "SOLUTION", "INDUSTRY", "TECHNOLOGY"]),
+  eyebrow: z.string().optional(),
+  heading: z.string().optional(),
+});
+
 export const blockSchema = z.discriminatedUnion("type", [
   heroBlockSchema,
   contentSectionBlockSchema,
   faqBlockSchema,
   ctaBlockSchema,
   featureGridBlockSchema,
+  entityGridBlockSchema,
 ]);
 
 export type CmsBlock = z.infer<typeof blockSchema>;
@@ -76,11 +92,12 @@ export const BLOCK_TYPE_OPTIONS: { type: BlockTypeKey; label: string }[] = [
   { type: "hero", label: "Hero" },
   { type: "contentSection", label: "Content section" },
   { type: "featureGrid", label: "Feature grid" },
+  { type: "entityGrid", label: "Entity grid (catalogue)" },
   { type: "faq", label: "FAQ" },
   { type: "cta", label: "CTA" },
 ];
 
-export function createDefaultBlock(type: BlockTypeKey): CmsBlock {
+export function createDefaultBlock(type: BlockTypeKey, existingBlocks: CmsBlock[] = []): CmsBlock {
   const id = `blk_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
   switch (type) {
     case "hero":
@@ -95,14 +112,17 @@ export function createDefaultBlock(type: BlockTypeKey): CmsBlock {
         secondaryCtaLabel: "Case studies",
         secondaryCtaHref: "/case-studies",
       };
-    case "contentSection":
+    case "contentSection": {
+      const sectionNumber =
+        existingBlocks.filter((b) => b.type === "contentSection").length + 1;
       return {
         type,
         id,
-        eyebrow: "01 · SECTION",
+        eyebrow: `${String(sectionNumber).padStart(2, "0")} · SECTION`,
         heading: "Section heading",
         bodyHtml: "<p>Write the body copy here.</p>",
       };
+    }
     case "featureGrid":
       return {
         type,
@@ -135,6 +155,14 @@ export function createDefaultBlock(type: BlockTypeKey): CmsBlock {
         primaryCtaLabel: "Book a free consultation",
         primaryCtaHref: "/contact",
         dark: true,
+      };
+    case "entityGrid":
+      return {
+        type,
+        id,
+        kind: "SERVICE",
+        eyebrow: "CATALOGUE",
+        heading: "Explore more",
       };
   }
 }

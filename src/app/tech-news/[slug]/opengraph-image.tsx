@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { getTechNewsBySlug } from "@/data/tech-news-demo";
+import { getTechNewsPostBySlug } from "@/lib/tech-news-content";
 
 export const alt = "Tech news article";
 export const size = { width: 1200, height: 630 };
@@ -7,9 +7,9 @@ export const contentType = "image/png";
 
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const article = getTechNewsBySlug(slug);
+  const article = await getTechNewsPostBySlug(slug);
   const title = article?.title ?? "Tech news";
-  const description = article?.excerpt ?? "";
+  const description = article?.excerpt || article?.description || "";
 
   return new ImageResponse(
     (

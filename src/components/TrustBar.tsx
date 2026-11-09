@@ -1,8 +1,9 @@
 /**
  * TrustBar (DESIGN.md → stats-card-tinted, badge-neutral).
  * Light-band stats row sitting directly under the dark hero. Stats live in
- * pastel-tinted tiles (mint / periwinkle / peach) — the only decorative use
- * of the brand accents outside of the gradient.
+ * pastel-tinted tiles — soft washes of Torq Blue / Torq Yellow so the
+ * (black-text) tiles stay legible without pulling in the vivid brand hues
+ * used for the gradient and CTAs.
  */
 
 const stats: {
@@ -21,11 +22,11 @@ const regions = ["Americas", "Europe", "Middle East", "Asia", "Africa"];
 function tintClass(t: (typeof stats)[number]["tint"]) {
   switch (t) {
     case "mint":
-      return "bg-[var(--brand-mint)]";
+      return "bg-[#fff3c4]";
     case "periwinkle":
-      return "bg-[var(--brand-periwinkle)]";
+      return "bg-[#dce9fb]";
     case "peach":
-      return "bg-[#ffd9c2]";
+      return "bg-[#b8cff0]";
     default:
       return "bg-[var(--app-muted)] text-[var(--app-fg)]";
   }

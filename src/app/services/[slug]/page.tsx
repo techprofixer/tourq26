@@ -8,10 +8,17 @@ import { BlockRenderer } from "@/components/cms/BlockRenderer";
 import { getServicePage, servicePages } from "@/data/services-content";
 import { publishedBlogPosts, readBlogPosts, readSiteContent } from "@/lib/content";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd, faqPageJsonLd, webPageJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, faqPageJsonLd, serviceJsonLd, webPageJsonLd } from "@/lib/seo";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
-import { getPublishedPageByPath, getPageBlocks } from "@/lib/cms/pages";
+import { ServiceSectionNav } from "@/components/marketing/ServiceSectionNav";
+import { RelatedContentSection } from "@/components/marketing/RelatedContentSection";
+import { getPublishedPageByPath, getPageBlocks, slugify } from "@/lib/cms/pages";
 import { buildPageJsonLd, buildPageMetadata } from "@/lib/cms/metadata";
+import { getRelatedContentGroups } from "@/lib/related-links";
+
+// Safety net: on-demand revalidation covers CMS/site-setting edits, but this bounds
+// staleness to an hour even if a revalidatePath call is ever missed.
+export const revalidate = 3600;
 
 export async function generateStaticParams() {
   return servicePages.map((p) => ({ slug: p.slug }));
@@ -58,9 +65,10 @@ export default async function ServiceDetailPage({
   try {
     const cms = await getPublishedPageByPath(`/services/${slug}`);
     if (cms) {
-      const siteUrl = await getSiteUrl();
-      const schemas = buildPageJsonLd(cms, siteUrl);
+      const [siteUrl, site] = await Promise.all([getSiteUrl(), readSiteContent()]);
+      const schemas = buildPageJsonLd(cms, siteUrl, site.siteName);
       const blocks = getPageBlocks(cms);
+      const relatedGroups = await getRelatedContentGroups({ path: cms.path });
       return (
         <div className="min-h-screen bg-background">
           {schemas.map((data, i) => (
@@ -69,6 +77,7 @@ export default async function ServiceDetailPage({
           <MarketingHeader />
           <main>
             <BlockRenderer blocks={blocks} />
+            <RelatedContentSection groups={relatedGroups} />
           </main>
           <Footer />
         </div>
@@ -81,12 +90,22 @@ export default async function ServiceDetailPage({
   const page = getServicePage(slug);
   if (!page) notFound();
 
-  const [siteUrl, allPosts] = await Promise.all([getSiteUrl(), readBlogPosts()]);
+  const [siteUrl, site, allPosts, relatedGroups] = await Promise.all([
+    getSiteUrl(),
+    readSiteContent(),
+    readBlogPosts(),
+    getRelatedContentGroups({ path: `/services/${page.slug}` }),
+  ]);
   const visiblePosts = publishedBlogPosts(allPosts);
 
   const relatedPosts = (page.relatedBlogSlugs ?? [])
     .map((s) => visiblePosts.find((p) => p.slug === s))
     .filter((p): p is NonNullable<typeof p> => p != null);
+
+  const sections = page.sections.map((section) => ({
+    ...section,
+    id: slugify(section.heading),
+  }));
 
   const faqLd = faqPageJsonLd(page.faqs);
   const breadcrumbLd = breadcrumbListJsonLd(siteUrl, [
@@ -100,22 +119,39 @@ export default async function ServiceDetailPage({
     name: `${page.title} | Torq Studio`,
     description: page.description,
   });
+  const serviceLd = serviceJsonLd({
+    siteUrl,
+    path: `/services/${page.slug}`,
+    name: page.title,
+    description: page.description,
+    siteName: site.siteName,
+  });
 
   return (
     <div className="min-h-screen bg-background">
       <JsonLd data={faqLd} />
       <JsonLd data={breadcrumbLd} />
       <JsonLd data={webLd} />
+      <JsonLd data={serviceLd} />
       <MarketingHeader />
       <main>
         <section className="hero-band">
           <div className="relative z-10 mx-auto w-full max-w-[1280px] px-4 pt-32 pb-16 sm:px-6 sm:pt-36 sm:pb-20 lg:px-8 lg:pt-40 lg:pb-[80px]">
-            <Link
-              href="/services"
-              className="mono-button inline-flex items-center gap-1 text-white/65 transition-colors hover:text-white"
-            >
-              ← ALL SERVICES
-            </Link>
+            <nav aria-label="Breadcrumb" className="mono-button flex flex-wrap items-center gap-2 text-white/55">
+              <Link href="/" className="transition-colors hover:text-white">
+                HOME
+              </Link>
+              <span aria-hidden="true" className="text-white/30">
+                /
+              </span>
+              <Link href="/services" className="transition-colors hover:text-white">
+                SERVICES
+              </Link>
+              <span aria-hidden="true" className="text-white/30">
+                /
+              </span>
+              <span className="text-white/85">{page.title.toUpperCase()}</span>
+            </nav>
             <p className="mono-eyebrow mt-8 text-white/55">
               SERVICE · {page.slug.replace(/-/g, " ").toUpperCase()}
             </p>
@@ -125,7 +161,7 @@ export default async function ServiceDetailPage({
             </p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
               <Link href="/contact" className="btn-base btn-white">
-                Book a consultation
+                Book a free consultation
               </Link>
               <Link href="/case-studies" className="btn-base btn-ghost-on-dark">
                 See case studies
@@ -138,29 +174,21 @@ export default async function ServiceDetailPage({
           <div className="mx-auto w-full max-w-[1280px] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-[80px]">
             <article className="grid gap-12 lg:grid-cols-12">
               <aside className="lg:col-span-4">
-                <p className="mono-eyebrow text-muted-foreground">SECTION INDEX</p>
-                <ol className="mt-4 space-y-3 text-[14px] text-muted-foreground">
-                  {page.sections.map((s, i) => (
-                    <li key={s.heading} className="flex gap-3">
-                      <span className="mono-label text-foreground/70">
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <span>{s.heading}</span>
-                    </li>
-                  ))}
-                </ol>
+                <ServiceSectionNav sections={sections} />
               </aside>
 
               <div className="lg:col-span-8 lg:max-w-[680px]">
-                {page.sections.map((section, i) => (
+                {sections.map((section, i) => (
                   <section
-                    key={section.heading}
-                    className={i === 0 ? "" : "mt-12 border-t border-hairline pt-12"}
+                    key={section.id}
+                    id={section.id}
+                    className={
+                      i === 0
+                        ? "scroll-mt-28"
+                        : "mt-12 scroll-mt-28 border-t border-hairline pt-12"
+                    }
                   >
-                    <p className="mono-eyebrow text-muted-foreground">
-                      {String(i + 1).padStart(2, "0")} · SECTION
-                    </p>
-                    <h2 className="display-lg mt-4 text-foreground">{section.heading}</h2>
+                    <h2 className="display-lg text-foreground">{section.heading}</h2>
                     <div
                       className="blog-article mt-5 max-w-none"
                       dangerouslySetInnerHTML={{ __html: section.body }}
@@ -202,7 +230,16 @@ export default async function ServiceDetailPage({
               <h2 className="display-md mt-4 text-foreground">
                 Long-form essays on the same problem space.
               </h2>
-              <ul className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              <ul
+                className={`mt-8 grid gap-4 ${
+                  relatedPosts.length >= 3
+                    ? "sm:grid-cols-2 lg:grid-cols-3"
+                    : relatedPosts.length === 2
+                      ? "max-w-3xl sm:grid-cols-2"
+                      : "max-w-sm"
+                }`}
+              >
+
                 {relatedPosts.map((post) =>
                   post ? (
                     <li key={post.slug}>
@@ -252,6 +289,8 @@ export default async function ServiceDetailPage({
             </div>
           </div>
         </section>
+
+        <RelatedContentSection groups={relatedGroups} />
       </main>
       <Footer />
     </div>

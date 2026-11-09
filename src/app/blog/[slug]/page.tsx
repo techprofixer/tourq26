@@ -16,10 +16,20 @@ import {
   formatBlogDate,
 } from "@/lib/blog-display";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
+import { RelatedContentSection } from "@/components/marketing/RelatedContentSection";
+import { getRelatedContentGroups } from "@/lib/related-links";
+
+// Safety net: on-demand revalidation covers CMS/site-setting edits, but this bounds
+// staleness to an hour even if a revalidatePath call is ever missed.
+export const revalidate = 3600;
 
 export async function generateStaticParams() {
-  const posts = publishedBlogPosts(await readBlogPosts());
-  return posts.map((p) => ({ slug: p.slug }));
+  try {
+    const posts = publishedBlogPosts(await readBlogPosts());
+    return posts.map((p) => ({ slug: p.slug }));
+  } catch {
+    return [];
+  }
 }
 
 export async function generateMetadata({
@@ -80,6 +90,10 @@ export default async function BlogPostPage({
 
   const authorLabel = post.authorName?.trim() || site.siteName;
   const related = blogPostsExcluding(visible, post.slug, 3);
+  const relatedGroups = await getRelatedContentGroups({
+    path: `/blog/${post.slug}`,
+    blogSlug: post.slug,
+  });
 
   const articleLd = blogPostingJsonLd({
     siteUrl,
@@ -222,6 +236,8 @@ export default async function BlogPostPage({
               <BlogRelatedPosts posts={related} />
             </div>
           </section>
+
+          <RelatedContentSection groups={relatedGroups} />
 
           {/* Closing CTA — dark band */}
           <section className="hero-band border-t border-[var(--brand-hairline-on-dark)]">

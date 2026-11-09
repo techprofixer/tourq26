@@ -3,12 +3,13 @@ import Link from "next/link";
 import MarketingHeader from "@/components/MarketingHeader";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
-import { techNewsDemoItems } from "@/data/tech-news-demo";
+import { publishedTechNewsPosts, readTechNewsPosts } from "@/lib/tech-news-content";
 import { getSiteUrl } from "@/lib/site-url";
 import { readSiteContent } from "@/lib/content";
 import { breadcrumbListJsonLd, techNewsCollectionJsonLd, webPageJsonLd } from "@/lib/seo";
 
 const PAGE_PATH = "/tech-news";
+export const revalidate = 3600;
 
 export async function generateMetadata(): Promise<Metadata> {
   const [baseUrl, site] = await Promise.all([getSiteUrl(), readSiteContent()]);
@@ -56,7 +57,12 @@ function formatDate(dateStr: string) {
 }
 
 export default async function TechNewsPage() {
-  const [siteUrl, site] = await Promise.all([getSiteUrl(), readSiteContent()]);
+  const [siteUrl, site, allPosts] = await Promise.all([
+    getSiteUrl(),
+    readSiteContent(),
+    readTechNewsPosts(),
+  ]);
+  const items = publishedTechNewsPosts(allPosts);
   const pageName = `Tech News | ${site.siteName}`;
   const pageDescription =
     "Technology news and analysis for developers, founders, and engineering leaders—AI, cloud, security, and more.";
@@ -78,16 +84,38 @@ export default async function TechNewsPage() {
     siteName: site.siteName,
     pageName,
     pageDescription,
-    articles: techNewsDemoItems.map((item) => ({
+    articles: items.map((item) => ({
       headline: item.title,
-      description: item.excerpt,
-      datePublished: `${item.datePublished}T00:00:00.000Z`,
+      description: item.excerpt || item.description,
+      datePublished: `${item.date}T00:00:00.000Z`,
       articleSection: item.category,
       url: `${siteUrl}/tech-news/${item.slug}`,
     })),
   });
 
-  const [featured, ...rest] = techNewsDemoItems;
+  if (items.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <JsonLd data={breadcrumbLd} />
+        <JsonLd data={webPageLd} />
+        <MarketingHeader />
+        <main>
+          <section className="hero-band">
+            <div className="relative z-10 mx-auto w-full max-w-[1280px] px-4 pt-32 pb-20 sm:px-6 sm:pt-36 sm:pb-24 lg:px-8 lg:pt-40 lg:pb-[80px]">
+              <p className="mono-eyebrow text-white/55">TECHNOLOGY BRIEFING</p>
+              <h1 className="display-xxl mt-5 text-white">Tech news.</h1>
+              <p className="mt-6 max-w-2xl text-[17px] leading-[1.5] text-white/70">
+                No stories published yet — check back soon.
+              </p>
+            </div>
+          </section>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  const [featured, ...rest] = items;
 
   return (
     <div className="min-h-screen bg-background">
@@ -140,14 +168,14 @@ export default async function TechNewsPage() {
                   <span className="mono-eyebrow inline-flex bg-foreground/95 px-2 py-1.5 text-background">
                     {featured.category.toUpperCase()}
                   </span>
-                  <time dateTime={featured.datePublished} className="mono-label text-muted-foreground">
-                    {formatDate(featured.datePublished).toUpperCase()}
+                  <time dateTime={featured.date} className="mono-label text-muted-foreground">
+                    {formatDate(featured.date).toUpperCase()}
                   </time>
                   <span className="mono-label text-muted-foreground/60" aria-hidden>
                     ·
                   </span>
                   <span className="mono-label text-muted-foreground">
-                    {featured.readingTimeMinutes} MIN READ
+                    {featured.readTime.toUpperCase()}
                   </span>
                 </div>
                 <h3 className="display-lg mt-5 text-foreground">{featured.title}</h3>
@@ -155,7 +183,7 @@ export default async function TechNewsPage() {
                   {featured.dek}
                 </p>
                 <p className="mt-4 text-[15px] leading-relaxed text-muted-foreground">
-                  {featured.excerpt}
+                  {featured.excerpt || featured.description}
                 </p>
                 <span className="mono-button mt-6 inline-flex items-center gap-1 text-foreground transition-transform group-hover:translate-x-0.5">
                   READ FULL ARTICLE →
@@ -198,10 +226,10 @@ export default async function TechNewsPage() {
                         ·
                       </span>
                       <time
-                        dateTime={item.datePublished}
+                        dateTime={item.date}
                         className="mono-label text-muted-foreground"
                       >
-                        {formatDate(item.datePublished).toUpperCase()}
+                        {formatDate(item.date).toUpperCase()}
                       </time>
                     </div>
                     <h3 className="display-md mt-5 text-foreground">{item.title}</h3>
@@ -209,11 +237,11 @@ export default async function TechNewsPage() {
                       {item.dek}
                     </p>
                     <p className="mt-3 flex-1 text-[14px] leading-relaxed text-muted-foreground">
-                      {item.excerpt}
+                      {item.excerpt || item.description}
                     </p>
                     <div className="mt-5 flex items-center justify-between border-t border-hairline pt-4">
                       <span className="mono-label text-muted-foreground">
-                        {item.readingTimeMinutes} MIN READ
+                        {item.readTime.toUpperCase()}
                       </span>
                       <span className="mono-button text-foreground transition-transform group-hover:translate-x-0.5">
                         READ →

@@ -4,17 +4,17 @@ import { notFound } from "next/navigation";
 import MarketingHeader from "@/components/MarketingHeader";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
-import { getTechNewsBySlug, getAllTechNewsSlugs } from "@/data/tech-news-demo";
+import { RelatedContentSection } from "@/components/marketing/RelatedContentSection";
+import { getTechNewsPostBySlug } from "@/lib/tech-news-content";
+import { getRelatedContentGroups } from "@/lib/related-links";
+import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
 import { getSiteUrl } from "@/lib/site-url";
 import { readSiteContent } from "@/lib/content";
 import { breadcrumbListJsonLd, techNewsArticleJsonLd } from "@/lib/seo";
 
-/** Only slugs from the content module resolve; unknown URLs 404 (no accidental SSR). */
-export const dynamicParams = false;
-
-export async function generateStaticParams() {
-  return getAllTechNewsSlugs().map((slug) => ({ slug }));
-}
+// Safety net: on-demand revalidation covers CMS edits, but this bounds staleness
+// to an hour even if a revalidatePath call is ever missed.
+export const revalidate = 3600;
 
 export async function generateMetadata({
   params,
@@ -22,14 +22,16 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const article = getTechNewsBySlug(slug);
+  const article = await getTechNewsPostBySlug(slug);
   const site = await readSiteContent();
-  if (!article) return { title: "Article not found", robots: { index: false, follow: false } };
+  if (!article || (article.status ?? "published") !== "published") {
+    return { title: "Article not found", robots: { index: false, follow: false } };
+  }
   const baseUrl = site.siteUrl.replace(/\/$/, "");
   const canonical = `${baseUrl}/tech-news/${article.slug}`;
   const ogImage = `/tech-news/${article.slug}/opengraph-image`;
-  const title = article.title;
-  const description = article.excerpt;
+  const title = article.seoTitle || article.title;
+  const description = article.excerpt || article.description;
   return {
     title,
     description,
@@ -39,15 +41,18 @@ export async function generateMetadata({
       description,
       url: canonical,
       type: "article",
-      publishedTime: `${article.datePublished}T00:00:00.000Z`,
+      publishedTime: `${article.date}T00:00:00.000Z`,
+      modifiedTime: article.dateUpdated,
       siteName: site.siteName,
-      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
+      images: article.coverImage
+        ? [{ url: article.coverImage, width: 1200, height: 630, alt: title }]
+        : [{ url: ogImage, width: 1200, height: 630, alt: title }],
     },
     twitter: {
       card: "summary_large_image",
       title: `${title} | ${site.siteName}`,
       description,
-      images: [ogImage],
+      images: [article.coverImage || ogImage],
       ...(site.twitterSite
         ? { site: `@${site.twitterSite}`, creator: `@${site.twitterSite}` }
         : {}),
@@ -70,22 +75,27 @@ export default async function TechNewsArticlePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const article = getTechNewsBySlug(slug);
-  if (!article) notFound();
+  const article = await getTechNewsPostBySlug(slug);
+  if (!article || (article.status ?? "published") !== "published") notFound();
 
-  const [site, siteUrl] = await Promise.all([readSiteContent(), getSiteUrl()]);
-  const isoPublished = `${article.datePublished}T00:00:00.000Z`;
-  const articleBodyText = article.paragraphs.join("\n\n");
+  const [site, siteUrl, relatedGroups] = await Promise.all([
+    readSiteContent(),
+    getSiteUrl(),
+    getRelatedContentGroups({ path: `/tech-news/${slug}`, techNewsSlug: slug }),
+  ]);
+  const isoPublished = `${article.date}T00:00:00.000Z`;
+  const safeBody = sanitizeBlogHtml(article.body || "");
 
   const newsLd = techNewsArticleJsonLd({
     siteUrl,
     slug: article.slug,
     headline: article.title,
-    description: article.excerpt,
+    description: article.excerpt || article.description,
     datePublished: isoPublished,
+    dateModified: article.dateUpdated,
     articleSection: article.category,
     siteName: site.siteName,
-    articleBody: articleBodyText,
+    articleBody: safeBody.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
   });
 
   const breadcrumbLd = breadcrumbListJsonLd(siteUrl, [
@@ -111,24 +121,25 @@ export default async function TechNewsArticlePage({
             <p className="text-xs font-semibold uppercase tracking-wide text-primary">
               {article.category}
             </p>
-            <time className="mt-2 block text-sm text-muted-foreground" dateTime={article.datePublished}>
-              {formatDate(article.datePublished)} · {article.readingTimeMinutes} min read
+            <time className="mt-2 block text-sm text-muted-foreground" dateTime={article.date}>
+              {formatDate(article.date)} · {article.readTime}
             </time>
             <h1 className="mt-4 font-display text-3xl font-bold leading-tight text-foreground sm:text-4xl">
               {article.title}
             </h1>
-            <p className="mt-4 text-lg font-medium text-primary/95 leading-relaxed">
-              {article.dek}
-            </p>
-            <p className="mt-4 text-lg text-muted-foreground leading-relaxed">{article.excerpt}</p>
-          </header>
-          <div className="prose prose-invert mt-10 max-w-none [&_p]:text-muted-foreground [&_p]:leading-relaxed [&_p]:text-[1.05rem]">
-            {article.paragraphs.map((p, i) => (
-              <p key={i} className="mb-6 last:mb-0">
-                {p}
+            {article.dek ? (
+              <p className="mt-4 text-lg font-medium text-primary/95 leading-relaxed">
+                {article.dek}
               </p>
-            ))}
-          </div>
+            ) : null}
+            <p className="mt-4 text-lg text-muted-foreground leading-relaxed">
+              {article.excerpt || article.description}
+            </p>
+          </header>
+          <div
+            className="blog-article prose prose-invert mt-10 max-w-none"
+            dangerouslySetInnerHTML={{ __html: safeBody }}
+          />
           <div className="mt-14 border-t border-border/50 pt-8">
             <Link
               href="/tech-news"
@@ -138,6 +149,7 @@ export default async function TechNewsArticlePage({
             </Link>
           </div>
         </article>
+        <RelatedContentSection groups={relatedGroups} />
       </main>
       <Footer />
     </div>

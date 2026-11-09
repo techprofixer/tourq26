@@ -5,7 +5,7 @@ import type {
   Prisma,
   WorkflowStatus,
 } from "@prisma/client";
-import { prisma } from "@/lib/db";
+import { prisma, withDbTimeout } from "@/lib/db";
 import { parseBlocks, type CmsBlock } from "@/lib/cms/blocks";
 
 export type PageWithSeo = Prisma.PageGetPayload<{
@@ -34,6 +34,8 @@ export function pathFor(type: PageType, slug: string): string {
       return `/industries/${s}`;
     case "TECHNOLOGY":
       return `/technologies/${s}`;
+    case "LOCATION":
+      return `/locations/${s}`;
     case "PRICING":
       return `/pricing/${s}`;
     case "CASE_STUDY":
@@ -80,13 +82,15 @@ export async function getPageById(id: string) {
 
 export async function getPublishedPageByPath(path: string) {
   const normalized = path === "" ? "/" : path.startsWith("/") ? path : `/${path}`;
-  return prisma.page.findFirst({
-    where: {
-      path: normalized,
-      status: "PUBLISHED",
-    },
-    include: { seo: true, brief: true, entityLinks: true },
-  });
+  return withDbTimeout(
+    prisma.page.findFirst({
+      where: {
+        path: normalized,
+        status: "PUBLISHED",
+      },
+      include: { seo: true, brief: true, entityLinks: true },
+    }),
+  );
 }
 
 export async function getPageByPathAnyStatus(path: string) {

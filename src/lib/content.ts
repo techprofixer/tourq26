@@ -1,6 +1,11 @@
-import { readFile, writeFile, mkdir } from "fs/promises";
-import path from "path";
-import { FEATURE_FLAGS_KV_KEY } from "@/lib/feature-flags-constants";
+import { cache } from "react";
+import { prisma, withDbTimeout, writeSingletonSetting, SINGLETON_KEY } from "@/lib/db";
+
+/** Deduped per-request: readSiteContent() and readFeatureFlagsDocument() both read this same
+ *  row — React's cache() collapses repeat calls within one render into a single DB query. */
+const getSiteSettingsRow = cache(() =>
+  withDbTimeout(prisma.siteSettings.findUnique({ where: { key: SINGLETON_KEY } })),
+);
 
 export type BlogStatus = "draft" | "published";
 
@@ -64,6 +69,12 @@ export type SiteContent = {
   sameAs: string[];
   /** X/Twitter handle without @ (e.g. torqstudio) */
   twitterSite: string;
+  /** Google Search Console HTML meta verification token (content value only, no tag) */
+  googleSiteVerification: string;
+  /** Bing Webmaster Tools meta verification token (content value only, no tag) */
+  bingSiteVerification: string;
+  /** When true, the whole site is blocked from indexing (robots meta + robots.txt) — for staging. */
+  robotsNoIndex: boolean;
 };
 
 export type ContactSubmission = {
@@ -73,126 +84,158 @@ export type ContactSubmission = {
   company: string;
   message: string;
   createdAt: string; // ISO
+  source?: string;
+  medium?: string;
+  campaign?: string;
+  term?: string;
+  content?: string;
+  landingPage?: string;
 };
 
-const KV_KEYS = {
-  blog: "content:blog",
-  testimonials: "content:testimonials",
-  site: "content:site",
-  contact: "content:contact",
-  featureFlags: FEATURE_FLAGS_KV_KEY,
-} as const;
+export type ChatFeedback = {
+  id: string;
+  rating: "up" | "down";
+  userQuery: string;
+  assistantReply: string;
+  createdAt: string; // ISO
+};
+
+export type ChatQueryLogEntry = {
+  id: string;
+  query: string;
+  fromSuggestion: boolean;
+  createdAt: string; // ISO
+};
 
 export type FeatureFlagsDocument = {
   values: Record<string, boolean>;
   updatedAt: string;
 };
 
-function isVercelKvConfigured(): boolean {
-  return !!(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
-}
-
-async function getKv(): Promise<{ get: (k: string) => Promise<unknown>; set: (k: string, v: unknown) => Promise<unknown> } | null> {
-  if (!isVercelKvConfigured()) return null;
-  try {
-    const { kv } = await import("@vercel/kv");
-    return kv;
-  } catch {
-    return null;
-  }
-}
-
-const CONTENT_DIR = path.join(process.cwd(), "content");
-
-async function getContentPath(filename: string): Promise<string> {
-  await mkdir(CONTENT_DIR, { recursive: true });
-  return path.join(CONTENT_DIR, filename);
-}
-
-export async function readFeatureFlagsDocument(): Promise<FeatureFlagsDocument | null> {
-  const kv = await getKv();
-  if (kv) {
-    const data = await kv.get(KV_KEYS.featureFlags);
-    if (data && typeof data === "object" && data !== null && "values" in data) {
-      return data as FeatureFlagsDocument;
-    }
-    return null;
-  }
-  try {
-    const filePath = await getContentPath("feature-flags.json");
-    const raw = await readFile(filePath, "utf-8");
-    return JSON.parse(raw) as FeatureFlagsDocument;
-  } catch {
-    return null;
-  }
-}
-
-export async function writeFeatureFlagsDocument(doc: FeatureFlagsDocument): Promise<void> {
-  const kv = await getKv();
-  if (kv) {
-    await kv.set(KV_KEYS.featureFlags, doc);
-    return;
-  }
-  const filePath = await getContentPath("feature-flags.json");
-  await writeFile(filePath, JSON.stringify(doc, null, 2), "utf-8");
-}
-
-export async function readBlogPostsFromFile(): Promise<BlogPost[]> {
-  try {
-    const filePath = await getContentPath("blog.json");
-    const raw = await readFile(filePath, "utf-8");
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
+function toBlogPost(row: {
+  slug: string;
+  title: string;
+  seoTitle: string | null;
+  description: string;
+  excerpt: string | null;
+  date: string;
+  dateUpdated: string | null;
+  readTime: string;
+  body: string;
+  authorName: string | null;
+  status: string;
+  coverImage: string | null;
+  tags: string[];
+  focusKeyword: string | null;
+  wordCount: number | null;
+}): BlogPost {
+  return {
+    slug: row.slug,
+    title: row.title,
+    seoTitle: row.seoTitle ?? undefined,
+    description: row.description,
+    excerpt: row.excerpt ?? undefined,
+    date: row.date,
+    dateUpdated: row.dateUpdated ?? undefined,
+    readTime: row.readTime,
+    body: row.body,
+    authorName: row.authorName ?? undefined,
+    status: (row.status as BlogStatus) ?? "published",
+    coverImage: row.coverImage ?? undefined,
+    tags: row.tags,
+    focusKeyword: row.focusKeyword ?? undefined,
+    wordCount: row.wordCount ?? undefined,
+  };
 }
 
 export async function readBlogPosts(): Promise<BlogPost[]> {
-  const kv = await getKv();
-  if (kv) {
-    const data = await kv.get(KV_KEYS.blog);
-    return Array.isArray(data) ? (data as BlogPost[]) : [];
-  }
-  return readBlogPostsFromFile();
-}
-
-export async function writeBlogPosts(posts: BlogPost[]): Promise<void> {
-  const kv = await getKv();
-  if (kv) {
-    await kv.set(KV_KEYS.blog, posts);
-    return;
-  }
-  const filePath = await getContentPath("blog.json");
-  await writeFile(filePath, JSON.stringify(posts, null, 2), "utf-8");
-}
-
-export async function readTestimonialsFromFile(): Promise<Testimonial[]> {
   try {
-    const filePath = await getContentPath("testimonials.json");
-    const raw = await readFile(filePath, "utf-8");
-    return JSON.parse(raw);
+    const rows = await withDbTimeout(prisma.blogPost.findMany());
+    return rows.map(toBlogPost);
   } catch {
     return [];
   }
 }
 
+export async function writeBlogPosts(posts: BlogPost[]): Promise<void> {
+  const slugs = posts.map((p) => p.slug);
+  await prisma.$transaction([
+    prisma.blogPost.deleteMany({ where: { slug: { notIn: slugs } } }),
+    ...posts.map((p) =>
+      prisma.blogPost.upsert({
+        where: { slug: p.slug },
+        create: {
+          slug: p.slug,
+          title: p.title,
+          seoTitle: p.seoTitle,
+          description: p.description,
+          excerpt: p.excerpt,
+          date: p.date,
+          dateUpdated: p.dateUpdated,
+          readTime: p.readTime,
+          body: p.body,
+          authorName: p.authorName,
+          status: p.status ?? "published",
+          coverImage: p.coverImage,
+          tags: p.tags ?? [],
+          focusKeyword: p.focusKeyword,
+          wordCount: p.wordCount,
+        },
+        update: {
+          title: p.title,
+          seoTitle: p.seoTitle,
+          description: p.description,
+          excerpt: p.excerpt,
+          date: p.date,
+          dateUpdated: p.dateUpdated,
+          readTime: p.readTime,
+          body: p.body,
+          authorName: p.authorName,
+          status: p.status ?? "published",
+          coverImage: p.coverImage,
+          tags: p.tags ?? [],
+          focusKeyword: p.focusKeyword,
+          wordCount: p.wordCount,
+        },
+      }),
+    ),
+  ]);
+}
+
 export async function readTestimonials(): Promise<Testimonial[]> {
-  const kv = await getKv();
-  if (kv) {
-    const data = await kv.get(KV_KEYS.testimonials);
-    return Array.isArray(data) ? (data as Testimonial[]) : [];
+  try {
+    const rows = await withDbTimeout(prisma.testimonial.findMany({ orderBy: { sortOrder: "asc" } }));
+    return rows.map((t) => ({
+      id: t.id,
+      quote: t.quote,
+      result: t.result ?? "",
+      name: t.name,
+      role: t.role ?? "",
+      company: t.company ?? "",
+      rating: t.rating,
+    }));
+  } catch {
+    return [];
   }
-  return readTestimonialsFromFile();
 }
 
 export async function writeTestimonials(items: Testimonial[]): Promise<void> {
-  const kv = await getKv();
-  if (kv) {
-    await kv.set(KV_KEYS.testimonials, items);
-    return;
-  }
-  const filePath = await getContentPath("testimonials.json");
-  await writeFile(filePath, JSON.stringify(items, null, 2), "utf-8");
+  await prisma.$transaction([
+    prisma.testimonial.deleteMany({}),
+    ...items.map((t, i) =>
+      prisma.testimonial.create({
+        data: {
+          quote: t.quote,
+          result: t.result,
+          name: t.name,
+          role: t.role,
+          company: t.company,
+          rating: t.rating,
+          sortOrder: i,
+        },
+      }),
+    ),
+  ]);
 }
 
 function getDefaultSiteContent(): SiteContent {
@@ -223,99 +266,85 @@ function getDefaultSiteContent(): SiteContent {
     siteName: "Torq Studio",
     sameAs: [],
     twitterSite: "",
+    googleSiteVerification: "",
+    bingSiteVerification: "",
+    robotsNoIndex: false,
   };
-}
-
-function normalizeSiteContent(raw: Partial<SiteContent> & Record<string, unknown>): SiteContent {
-  const d = getDefaultSiteContent();
-  const sameAsRaw = raw.sameAs;
-  const sameAs =
-    Array.isArray(sameAsRaw) && sameAsRaw.every((x) => typeof x === "string")
-      ? (sameAsRaw as string[]).map((u) => u.trim()).filter(Boolean)
-      : d.sameAs;
-  const tw =
-    typeof raw.twitterSite === "string"
-      ? raw.twitterSite.replace(/^@/, "").trim()
-      : d.twitterSite;
-  return {
-    siteUrl: typeof raw.siteUrl === "string" && raw.siteUrl.trim() ? raw.siteUrl.trim() : d.siteUrl,
-    defaultTitle: typeof raw.defaultTitle === "string" ? raw.defaultTitle : d.defaultTitle,
-    defaultDescription: typeof raw.defaultDescription === "string" ? raw.defaultDescription : d.defaultDescription,
-    titleTemplate: typeof raw.titleTemplate === "string" ? raw.titleTemplate : d.titleTemplate,
-    keywords: Array.isArray(raw.keywords) ? (raw.keywords as string[]).filter((k) => typeof k === "string") : d.keywords,
-    ogTitle: typeof raw.ogTitle === "string" ? raw.ogTitle : d.ogTitle,
-    ogDescription: typeof raw.ogDescription === "string" ? raw.ogDescription : d.ogDescription,
-    twitterTitle: typeof raw.twitterTitle === "string" ? raw.twitterTitle : d.twitterTitle,
-    twitterDescription: typeof raw.twitterDescription === "string" ? raw.twitterDescription : d.twitterDescription,
-    siteName: typeof raw.siteName === "string" ? raw.siteName : d.siteName,
-    sameAs,
-    twitterSite: tw,
-  };
-}
-
-export async function readSiteContentFromFile(): Promise<SiteContent> {
-  try {
-    const filePath = await getContentPath("site.json");
-    const raw = await readFile(filePath, "utf-8");
-    return normalizeSiteContent(JSON.parse(raw) as Partial<SiteContent>);
-  } catch {
-    return getDefaultSiteContent();
-  }
 }
 
 export async function readSiteContent(): Promise<SiteContent> {
-  const kv = await getKv();
-  if (kv) {
-    const data = await kv.get(KV_KEYS.site);
-    if (data && typeof data === "object" && "siteUrl" in data) {
-      return normalizeSiteContent(data as Partial<SiteContent>);
-    }
-    return getDefaultSiteContent();
+  const d = getDefaultSiteContent();
+  let row;
+  try {
+    row = await getSiteSettingsRow();
+  } catch {
+    return d;
   }
-  return readSiteContentFromFile();
+  if (!row) return d;
+  return {
+    siteUrl: row.siteUrl || d.siteUrl,
+    defaultTitle: row.defaultTitle || d.defaultTitle,
+    defaultDescription: row.defaultDescription || d.defaultDescription,
+    titleTemplate: row.titleTemplate || d.titleTemplate,
+    keywords: row.keywords.length ? row.keywords : d.keywords,
+    ogTitle: row.ogTitle || d.ogTitle,
+    ogDescription: row.ogDescription || d.ogDescription,
+    twitterTitle: row.twitterTitle || d.twitterTitle,
+    twitterDescription: row.twitterDescription || d.twitterDescription,
+    siteName: row.siteName || d.siteName,
+    sameAs: row.socialProfiles,
+    twitterSite: row.twitterHandle || d.twitterSite,
+    googleSiteVerification: row.googleSiteVerification || d.googleSiteVerification,
+    bingSiteVerification: row.bingSiteVerification || d.bingSiteVerification,
+    robotsNoIndex: row.robotsNoIndex ?? d.robotsNoIndex,
+  };
 }
 
 export async function writeSiteContent(data: SiteContent): Promise<void> {
-  const kv = await getKv();
-  if (kv) {
-    await kv.set(KV_KEYS.site, data);
-    return;
-  }
-  const filePath = await getContentPath("site.json");
-  await writeFile(filePath, JSON.stringify(data, null, 2), "utf-8");
+  const payload = {
+    siteUrl: data.siteUrl,
+    defaultTitle: data.defaultTitle,
+    defaultDescription: data.defaultDescription,
+    titleTemplate: data.titleTemplate,
+    keywords: data.keywords,
+    ogTitle: data.ogTitle,
+    ogDescription: data.ogDescription,
+    twitterTitle: data.twitterTitle,
+    twitterDescription: data.twitterDescription,
+    siteName: data.siteName,
+    socialProfiles: data.sameAs.map((u) => u.trim()).filter(Boolean),
+    twitterHandle: data.twitterSite.replace(/^@/, "").trim(),
+    googleSiteVerification: data.googleSiteVerification.trim(),
+    bingSiteVerification: data.bingSiteVerification.trim(),
+    robotsNoIndex: data.robotsNoIndex,
+  };
+  await writeSingletonSetting((args) => prisma.siteSettings.upsert(args), payload);
 }
 
 // --- Contact form submissions (append-only, admin view only) ---
 
-export async function readContactSubmissionsFromFile(): Promise<ContactSubmission[]> {
+export async function readContactSubmissions(): Promise<ContactSubmission[]> {
   try {
-    const filePath = await getContentPath("contact.json");
-    const raw = await readFile(filePath, "utf-8");
-    const data = JSON.parse(raw);
-    return Array.isArray(data) ? (data as ContactSubmission[]) : [];
+    const rows = await withDbTimeout(
+      prisma.contactSubmission.findMany({ orderBy: { createdAt: "desc" } }),
+    );
+    return rows.map((c) => ({
+      id: c.id,
+      name: c.name,
+      email: c.email,
+      company: c.company ?? "",
+      message: c.message,
+      createdAt: c.createdAt.toISOString(),
+      source: c.source ?? undefined,
+      medium: c.medium ?? undefined,
+      campaign: c.campaign ?? undefined,
+      term: c.term ?? undefined,
+      content: c.content ?? undefined,
+      landingPage: c.landingPage ?? undefined,
+    }));
   } catch {
     return [];
   }
-}
-
-export async function readContactSubmissions(): Promise<ContactSubmission[]> {
-  const kv = await getKv();
-  if (kv) {
-    const data = await kv.get(KV_KEYS.contact);
-    if (Array.isArray(data)) return data as ContactSubmission[];
-    return [];
-  }
-  return readContactSubmissionsFromFile();
-}
-
-export async function writeContactSubmissions(submissions: ContactSubmission[]): Promise<void> {
-  const kv = await getKv();
-  if (kv) {
-    await kv.set(KV_KEYS.contact, submissions);
-    return;
-  }
-  const filePath = await getContentPath("contact.json");
-  await writeFile(filePath, JSON.stringify(submissions, null, 2), "utf-8");
 }
 
 export async function addContactSubmission(input: {
@@ -323,17 +352,120 @@ export async function addContactSubmission(input: {
   email: string;
   company?: string;
   message: string;
+  source?: string;
+  medium?: string;
+  campaign?: string;
+  term?: string;
+  content?: string;
+  landingPage?: string;
 }): Promise<ContactSubmission> {
-  const list = await readContactSubmissions();
-  const submission: ContactSubmission = {
-    id: crypto.randomUUID(),
-    name: input.name.trim(),
-    email: input.email.trim(),
-    company: (input.company ?? "").trim(),
-    message: input.message.trim(),
-    createdAt: new Date().toISOString(),
+  const row = await prisma.contactSubmission.create({
+    data: {
+      name: input.name.trim(),
+      email: input.email.trim(),
+      company: (input.company ?? "").trim(),
+      message: input.message.trim(),
+      source: input.source,
+      medium: input.medium,
+      campaign: input.campaign,
+      term: input.term,
+      content: input.content,
+      landingPage: input.landingPage,
+    },
+  });
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    company: row.company ?? "",
+    message: row.message,
+    createdAt: row.createdAt.toISOString(),
+    source: row.source ?? undefined,
+    medium: row.medium ?? undefined,
+    campaign: row.campaign ?? undefined,
+    term: row.term ?? undefined,
+    content: row.content ?? undefined,
+    landingPage: row.landingPage ?? undefined,
   };
-  list.unshift(submission); // newest first
-  await writeContactSubmissions(list);
-  return submission;
+}
+
+// --- Chat feedback (thumbs up/down on assistant replies) ---
+
+export async function readChatFeedback(): Promise<ChatFeedback[]> {
+  try {
+    const rows = await withDbTimeout(prisma.chatFeedback.findMany({ orderBy: { createdAt: "desc" } }));
+    return rows.map((r) => ({
+      id: r.id,
+      rating: r.rating === "up" ? "up" : "down",
+      userQuery: r.userQuery,
+      assistantReply: r.assistantReply,
+      createdAt: r.createdAt.toISOString(),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function addChatFeedback(input: {
+  rating: "up" | "down";
+  userQuery: string;
+  assistantReply: string;
+}): Promise<ChatFeedback> {
+  const row = await prisma.chatFeedback.create({
+    data: {
+      rating: input.rating,
+      userQuery: input.userQuery.trim(),
+      assistantReply: input.assistantReply.trim(),
+    },
+  });
+  return {
+    id: row.id,
+    rating: row.rating === "up" ? "up" : "down",
+    userQuery: row.userQuery,
+    assistantReply: row.assistantReply,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+// --- Chat query log (fire-and-forget; never breaks the caller's chat response) ---
+
+export async function logChatQuery(params: { query: string; fromSuggestion: boolean }): Promise<void> {
+  try {
+    await prisma.chatQueryLog.create({
+      data: { query: params.query, fromSuggestion: params.fromSuggestion },
+    });
+  } catch {
+    /* noop — logging must never break the chat response */
+  }
+}
+
+export async function listChatQueryLog(limit = 200): Promise<ChatQueryLogEntry[]> {
+  try {
+    const rows = await prisma.chatQueryLog.findMany({ orderBy: { createdAt: "desc" }, take: limit });
+    return rows.map((r) => ({
+      id: r.id,
+      query: r.query,
+      fromSuggestion: r.fromSuggestion,
+      createdAt: r.createdAt.toISOString(),
+    }));
+  } catch {
+    return [];
+  }
+}
+
+// --- Feature flags ---
+
+export async function readFeatureFlagsDocument(): Promise<FeatureFlagsDocument | null> {
+  let row;
+  try {
+    row = await getSiteSettingsRow();
+  } catch {
+    return null;
+  }
+  const data = row?.featureFlags;
+  return data && typeof data === "object" && "values" in data ? (data as FeatureFlagsDocument) : null;
+}
+
+export async function writeFeatureFlagsDocument(doc: FeatureFlagsDocument): Promise<void> {
+  await writeSingletonSetting((args) => prisma.siteSettings.upsert(args), { featureFlags: doc });
 }

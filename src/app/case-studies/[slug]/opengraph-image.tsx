@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { getCaseStudyBySlug } from "@/data/case-studies";
+import { getCaseStudyBySlug } from "@/lib/case-studies-content";
 
 export const alt = "Case study";
 export const size = { width: 1200, height: 630 };
@@ -7,7 +7,7 @@ export const contentType = "image/png";
 
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const study = getCaseStudyBySlug(slug);
+  const study = await getCaseStudyBySlug(slug);
   const title = study?.title ?? "Case study";
   const line = study?.industry ?? "Torq Studio";
 

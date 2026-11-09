@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getResolvedFeatureFlagsFromKvOnly } from "@/lib/feature-flags-edge";
+import { getResolvedFeatureFlags } from "@/lib/feature-flags";
+import { findActiveRedirect } from "@/lib/redirects";
+import { isEnvFlagOn } from "@/lib/env";
 
 function isAdminOrPublicAuthPath(pathname: string): boolean {
   if (pathname.startsWith("/admin")) return true;
@@ -12,8 +14,7 @@ function isAdminOrPublicAuthPath(pathname: string): boolean {
 }
 
 function envMaintenanceOn(): boolean {
-  const v = process.env.MAINTENANCE_MODE?.trim().toLowerCase();
-  return v === "true" || v === "1" || v === "yes" || v === "on";
+  return isEnvFlagOn(process.env.MAINTENANCE_MODE, false);
 }
 
 export async function middleware(request: NextRequest) {
@@ -26,7 +27,19 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const flags = await getResolvedFeatureFlagsFromKvOnly();
+  // Content-team-managed redirects (DB-backed, editable at /admin/redirects). Static infra-level
+  // rules (host canonicalization, deploy-time path renames) live in next.config.ts's redirects()
+  // instead — add those there, not here.
+  if (!isAdminOrPublicAuthPath(pathname)) {
+    const redirectRule = await findActiveRedirect(pathname);
+    if (redirectRule) {
+      const url = request.nextUrl.clone();
+      const target = new URL(redirectRule.toPath, url.origin);
+      return NextResponse.redirect(target, redirectRule.permanent ? 301 : 302);
+    }
+  }
+
+  const flags = await getResolvedFeatureFlags().catch(() => null);
   const maintenanceActive = envMaintenanceOn() || (flags?.maintenance_mode === true);
 
   if (maintenanceActive) {
@@ -62,6 +75,21 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  if (!flags.business_systems_audit) {
+    if (pathname === "/business-systems" || pathname.startsWith("/business-systems/")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/feature-unavailable";
+      url.searchParams.set("k", "business_systems_audit");
+      return NextResponse.redirect(url);
+    }
+    if (pathname === "/api/business-systems/audit" && method === "POST") {
+      return NextResponse.json(
+        { error: "feature_disabled", message: "The audit form is temporarily disabled." },
+        { status: 503 },
+      );
+    }
+  }
+
   if (!flags.marketing_blog && (pathname === "/blog" || pathname.startsWith("/blog/"))) {
     const url = request.nextUrl.clone();
     url.pathname = "/feature-unavailable";
@@ -73,6 +101,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
+  runtime: "nodejs",
   matcher: [
     // Exclude everything under /_next (static chunks, media, image optimizer) — matcher is a hint; guard above is authoritative.
     "/((?!_next/|favicon.ico|robots.txt|sitemap.xml|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",

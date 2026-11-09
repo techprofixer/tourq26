@@ -10,10 +10,20 @@ export function AdminSidebar({
   blogCount,
   draftCount,
   contactCount,
+  caseStudyCount,
+  techNewsCount,
+  chatFeedbackCount,
+  newLeadCount,
+  maintenanceOn,
 }: {
   blogCount: number;
   draftCount: number;
   contactCount: number;
+  caseStudyCount: number;
+  techNewsCount: number;
+  chatFeedbackCount: number;
+  newLeadCount: number;
+  maintenanceOn: boolean;
 }) {
   const pathname = usePathname() || "";
 
@@ -21,7 +31,10 @@ export function AdminSidebar({
     {
       id: "overview",
       label: "OVERVIEW",
-      items: [{ href: "/admin/dashboard", label: "Dashboard" }],
+      items: [
+        { href: "/admin/dashboard", label: "Dashboard" },
+        { href: "/admin/activity", label: "Activity" },
+      ],
     },
     {
       id: "cms",
@@ -29,6 +42,7 @@ export function AdminSidebar({
       items: [
         { href: "/admin/cms/pages", label: "Pages" },
         { href: "/admin/cms/entities", label: "Entities" },
+        { href: "/admin/media", label: "Media" },
       ],
     },
     {
@@ -36,7 +50,10 @@ export function AdminSidebar({
       label: "CONTENT",
       items: [
         { href: "/admin/blog", label: "Blog", badge: blogCount },
+        { href: "/admin/case-studies", label: "Case studies", badge: caseStudyCount },
+        { href: "/admin/tech-news", label: "Tech news", badge: techNewsCount },
         { href: "/admin/testimonials", label: "Testimonials" },
+        { href: "/admin/pricing", label: "Pricing" },
       ],
     },
     {
@@ -45,10 +62,28 @@ export function AdminSidebar({
       items: [{ href: "/admin/contact", label: "Contact form", badge: contactCount }],
     },
     {
+      id: "leads",
+      label: "LEADS",
+      items: [{ href: "/admin/leads", label: "Business Systems Audit", badge: newLeadCount }],
+    },
+    {
+      id: "chatbot",
+      label: "CHATBOT",
+      items: [
+        { href: "/admin/knowledge-base", label: "Chat knowledge" },
+        { href: "/admin/chat-feedback", label: "Chat feedback", badge: chatFeedbackCount },
+        { href: "/admin/chat-logs", label: "Chat logs" },
+      ],
+    },
+    {
       id: "settings",
       label: "SETTINGS",
       items: [
-        { href: "/admin/site", label: "Site & SEO" },
+        { href: "/admin/home", label: "Homepage" },
+        { href: "/admin/navigation", label: "Navigation" },
+        { href: "/admin/footer", label: "Footer" },
+        { href: "/admin/brand", label: "Brand & SEO" },
+        { href: "/admin/redirects", label: "Redirects" },
         { href: "/admin/feature-flags", label: "Feature flags" },
       ],
     },
@@ -110,6 +145,21 @@ export function AdminSidebar({
             <div className="flex justify-between">
               <dt className="text-muted-foreground">Inbox</dt>
               <dd className="tabular-nums font-medium text-foreground">{contactCount}</dd>
+            </div>
+            <div className="flex items-center justify-between pt-1">
+              <dt className="text-muted-foreground">Maintenance</dt>
+              <dd className="flex items-center gap-1.5 font-medium text-foreground">
+                <span
+                  aria-hidden
+                  className="inline-block h-1.5 w-1.5 rounded-full"
+                  style={{
+                    background: maintenanceOn
+                      ? "var(--app-destructive)"
+                      : "var(--app-success)",
+                  }}
+                />
+                {maintenanceOn ? "ON" : "OFF"}
+              </dd>
             </div>
           </dl>
         </div>

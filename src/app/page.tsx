@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import MarketingHeader from "@/components/MarketingHeader";
 import Hero from "@/components/Hero";
+import OfferBanner from "@/components/OfferBanner";
+import HomeSlider from "@/components/HomeSlider";
+import Offers from "@/components/Offers";
 import WorkGalleryStrip from "@/components/WorkGalleryStrip";
 import TrustBar from "@/components/TrustBar";
 import Services from "@/components/Services";
@@ -12,6 +15,8 @@ import HomePageContent from "@/components/HomePageContent";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import { readTestimonials, readSiteContent } from "@/lib/content";
+import { readHomeContent } from "@/lib/home-content";
+import { readCaseStudies } from "@/lib/case-studies-content";
 import { webPageJsonLd } from "@/lib/seo";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 
@@ -25,7 +30,12 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Home() {
-  const [testimonials, site] = await Promise.all([readTestimonials(), readSiteContent()]);
+  const [testimonials, site, home, caseStudies] = await Promise.all([
+    readTestimonials(),
+    readSiteContent(),
+    readHomeContent(),
+    readCaseStudies(),
+  ]);
   const siteUrl = site.siteUrl.replace(/\/$/, "");
   const servicesLd = {
     "@context": "https://schema.org",
@@ -47,30 +57,79 @@ export default async function Home() {
     description: site.defaultDescription,
   });
 
+  const bannerActive = home.offerBannerEnabled && Boolean(home.offerBannerText.trim());
+
   return (
     <>
       <JsonLd data={webPageLd} />
       <JsonLd data={servicesLd} />
-      <MarketingHeader />
+      {bannerActive ? (
+        <OfferBanner
+          text={home.offerBannerText}
+          ctaLabel={home.offerBannerCtaLabel}
+          ctaHref={home.offerBannerCtaHref}
+        />
+      ) : null}
+      <MarketingHeader bannerActive={bannerActive} />
       <main>
-        <Hero />
+        <Hero
+          heroEyebrow={home.heroEyebrow}
+          heroHeading={home.heroHeading}
+          heroSubheading={home.heroSubheading}
+          heroPrimaryCtaLabel={home.heroPrimaryCtaLabel}
+          heroPrimaryCtaHref={home.heroPrimaryCtaHref}
+          heroSecondaryCtaLabel={home.heroSecondaryCtaLabel}
+          heroSecondaryCtaHref={home.heroSecondaryCtaHref}
+          heroTertiaryCtaLabel={home.heroTertiaryCtaLabel}
+          heroTertiaryCtaHref={home.heroTertiaryCtaHref}
+          heroTags={home.heroTags}
+          bannerActive={bannerActive}
+          heroImageEnabled={home.heroImageEnabled}
+          heroImageUrl={home.heroImageUrl}
+          heroImageAlt={home.heroImageAlt}
+        />
+        {home.sliderEnabled ? <HomeSlider heading={home.sliderHeading} items={home.sliderItems} /> : null}
         <WorkGalleryStrip />
         <TrustBar />
-        <Services />
-        <WhyChooseUs />
-        <CaseStudies />
+        {home.offersEnabled ? (
+          <Offers offersHeading={home.offersHeading} offersIntro={home.offersIntro} offersItems={home.offersItems} />
+        ) : null}
+        <Services
+          servicesEyebrow={home.servicesEyebrow}
+          servicesHeading={home.servicesHeading}
+          servicesIntro={home.servicesIntro}
+          servicesItems={home.servicesItems}
+        />
+        <WhyChooseUs
+          whyUsEyebrow={home.whyUsEyebrow}
+          whyUsHeading={home.whyUsHeading}
+          whyUsIntro={home.whyUsIntro}
+          whyUsItems={home.whyUsItems}
+        />
+        <CaseStudies
+          caseStudiesEyebrow={home.caseStudiesEyebrow}
+          caseStudiesHeading={home.caseStudiesHeading}
+          caseStudiesIntro={home.caseStudiesIntro}
+          items={caseStudies}
+        />
         <Testimonials items={testimonials} />
         <HomePageContent />
         <SupportingProseSection
           id="home-snapshot"
-          heading="Snapshot for technical decision-makers"
-          paragraphs={[
-            "Torq Studio is a senior-engineering-led practice: we build and advise on mobile applications, customer-facing websites, internal web platforms, public and partner APIs, and practical AI automation where there is a measurable workflow to improve.",
-            "Clients choose us when delivery risk is high—store review, traffic spikes, integration breakage, or governance—and they want direct access to the people doing the work. We document scope, acceptance criteria, and milestone checkpoints so finance and leadership see steady progress, not black-box development.",
-            "Engagement models span fixed-scope MVPs, ongoing retainers, embedded squads, and paid discovery or architecture reviews when you need confidence before funding a larger build. Explore services for discipline-specific detail, case studies for comparable contexts, or contact us for a free 30-minute consultation.",
-          ]}
+          heading={home.snapshotHeading}
+          paragraphs={home.snapshotParagraphs}
         />
-        <CTA />
+        <CTA
+          ctaEyebrow={home.ctaEyebrow}
+          ctaHeading={home.ctaHeading}
+          ctaBody={home.ctaBody}
+          ctaPrimaryLabel={home.ctaPrimaryLabel}
+          ctaPrimaryHref={home.ctaPrimaryHref}
+          ctaSecondaryLabel={home.ctaSecondaryLabel}
+          ctaSecondaryHref={home.ctaSecondaryHref}
+          ctaEmail={home.ctaEmail}
+          ctaFootnote={home.ctaFootnote}
+        />
         <Footer />
       </main>
     </>

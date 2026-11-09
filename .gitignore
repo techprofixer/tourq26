@@ -21,6 +21,10 @@
 # production
 /build
 
+# admin-uploaded media (local disk storage, not source content)
+/public/uploads/*
+!/public/uploads/.gitkeep
+
 # misc
 .DS_Store
 *.pem

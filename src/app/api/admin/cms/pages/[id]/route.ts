@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import type { WorkflowStatus } from "@prisma/client";
-import { requireAdmin } from "@/lib/auth";
+import { withAdmin } from "@/lib/with-admin";
 import { parseBlocks } from "@/lib/cms/blocks";
 import {
   getPageById,
@@ -10,29 +10,29 @@ import {
   updatePage,
   type UpsertPageInput,
 } from "@/lib/cms/pages";
+import { logActivity } from "@/lib/activity-log";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(_request: NextRequest, ctx: Ctx) {
-  const ok = await requireAdmin();
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const GET = withAdmin(async (_request: NextRequest, ctx: Ctx) => {
   const { id } = await ctx.params;
   const page = await getPageById(id);
   if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
   return NextResponse.json(page);
-}
+});
 
-export async function PATCH(request: NextRequest, ctx: Ctx) {
-  const ok = await requireAdmin();
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const PATCH = withAdmin(async (request: NextRequest, ctx: Ctx) => {
   const { id } = await ctx.params;
   const body = (await request.json()) as Record<string, unknown>;
 
   if (body.action === "publish") {
     const page = await publishPage(id);
+    void logActivity({ entityType: "cms-page", entityId: id, action: "published", summary: `Published CMS page "${page?.title ?? id}"` });
     if (page?.path) {
       revalidatePath(page.path);
       revalidatePath("/sitemap.xml");
+      // A SERVICE page's publish state gates whether its entity card is listed on /services.
+      if (page.type === "SERVICE") revalidatePath("/services");
     }
     return NextResponse.json(page);
   }
@@ -43,9 +43,16 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
       body.toStatus as WorkflowStatus,
       body.comment != null ? String(body.comment) : undefined,
     );
+    void logActivity({
+      entityType: "cms-page",
+      entityId: id,
+      action: page?.status === "PUBLISHED" ? "published" : "updated",
+      summary: `Transitioned CMS page "${page?.title ?? id}" to ${body.toStatus}`,
+    });
     if (page?.status === "PUBLISHED" && page.path) {
       revalidatePath(page.path);
       revalidatePath("/sitemap.xml");
+      if (page.type === "SERVICE") revalidatePath("/services");
     }
     return NextResponse.json(page);
   }
@@ -66,6 +73,7 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
   try {
     const page = await updatePage(id, patch);
     if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    void logActivity({ entityType: "cms-page", entityId: id, action: "updated", summary: `Updated CMS page "${page.title}"` });
     if (page.status === "PUBLISHED") {
       revalidatePath(page.path);
     }
@@ -75,18 +83,18 @@ export async function PATCH(request: NextRequest, ctx: Ctx) {
     const message = e instanceof Error ? e.message : "Failed to update page";
     return NextResponse.json({ error: message }, { status: 400 });
   }
-}
+});
 
-export async function DELETE(_request: NextRequest, ctx: Ctx) {
-  const ok = await requireAdmin();
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+export const DELETE = withAdmin(async (_request: NextRequest, ctx: Ctx) => {
   const { id } = await ctx.params;
   const { prisma } = await import("@/lib/db");
   const page = await getPageById(id);
   if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   await prisma.page.delete({ where: { id } });
+  void logActivity({ entityType: "cms-page", entityId: id, action: "deleted", summary: `Deleted CMS page "${page.title}"` });
   revalidatePath("/admin/cms/pages");
   if (page.path) revalidatePath(page.path);
+  if (page.type === "SERVICE") revalidatePath("/services");
   return NextResponse.json({ ok: true });
-}
+});

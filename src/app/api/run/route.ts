@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import * as ts from "typescript";
 import { z } from "zod";
 import { isFeatureEnabled } from "@/lib/feature-flags";
-import { runPiston, type PistonLanguage } from "@/lib/hub/piston";
+import { runPiston, type PistonLanguage } from "@/lib/piston";
 
 const bodySchema = z.object({
   code: z.string().max(500_000),

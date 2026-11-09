@@ -1,24 +1,24 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getSessionToken } from "@/lib/auth";
-
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "admin";
+import { getSessionToken, ADMIN_PASSWORD, COOKIE_NAME } from "@/lib/auth";
+import { jsonError } from "@/lib/api-response";
+import { ADMIN_SESSION_MAX_AGE_SECONDS } from "@/lib/constants";
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const password = typeof body.password === "string" ? body.password : "";
 
   if (password !== ADMIN_PASSWORD) {
-    return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+    return jsonError(401, "Invalid password");
   }
 
   const token = getSessionToken();
   const cookieStore = await cookies();
-  cookieStore.set("admin_session", token, {
+  cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
-    maxAge: 60 * 60 * 24 * 7, // 7 days
+    maxAge: ADMIN_SESSION_MAX_AGE_SECONDS,
     path: "/",
   });
 

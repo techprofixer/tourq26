@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import type { PageType, WorkflowStatus } from "@prisma/client";
-import { requireAdmin } from "@/lib/auth";
+import { withAdmin } from "@/lib/with-admin";
 import { parseBlocks } from "@/lib/cms/blocks";
 import { createPage, listPages } from "@/lib/cms/pages";
+import { logActivity } from "@/lib/activity-log";
 
-export async function GET(request: NextRequest) {
-  const ok = await requireAdmin();
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+export const GET = withAdmin(async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get("status") as WorkflowStatus | null;
   const type = searchParams.get("type") as PageType | null;
@@ -18,12 +16,9 @@ export async function GET(request: NextRequest) {
     type: type || undefined,
   });
   return NextResponse.json(pages);
-}
+});
 
-export async function POST(request: NextRequest) {
-  const ok = await requireAdmin();
-  if (!ok) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
+export const POST = withAdmin(async (request: NextRequest) => {
   const body = (await request.json()) as Record<string, unknown>;
   const title = String(body.title ?? "").trim();
   const type = String(body.type ?? "LANDING") as PageType;
@@ -44,10 +39,11 @@ export async function POST(request: NextRequest) {
       seo: body.seo as Parameters<typeof createPage>[0]["seo"],
       brief: body.brief as Parameters<typeof createPage>[0]["brief"],
     });
+    void logActivity({ entityType: "cms-page", entityId: page.id, action: "created", summary: `Created CMS page "${page.title}"` });
     revalidatePath("/admin/cms/pages");
     return NextResponse.json(page, { status: 201 });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Failed to create page";
     return NextResponse.json({ error: message }, { status: 400 });
   }
-}
+});

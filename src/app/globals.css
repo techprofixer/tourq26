@@ -3,19 +3,27 @@
 /*
  * Design system — SINGLE SOURCE OF TRUTH (see DESIGN.md)
  * --------------------------------------------------------------------------
- * Together AI-inspired alternating-band system. Light-only — the marketing
- * surface uses canvas-dark bands for hero / research / CTA on top of a white
- * canvas; there is no global dark mode toggle.
+ * Torq brand palette on an alternating-band system. Light-only — the
+ * marketing surface uses canvas-dark bands for hero / research / CTA on top
+ * of a white canvas; there is no global dark mode toggle.
  *   • Two-face type: display sans (Inter, weight 500, tight tracking) for
  *     narrative/headlines/body; uppercase mono (JetBrains Mono, 500, positive
  *     tracking) for every eyebrow, button label, table-header.
- *   • Two surface modes: `canvas-dark` (#010120) bands for hero / research /
- *     CTA, alternating with white bands for product / pricing / editorial.
- *     No in-between greys.
- *   • One black pill carries every primary CTA. Mint + white pills appear
- *     only inside the hero. A 3-stop brand gradient (orange→magenta→
- *     periwinkle) is the entire decorative system.
+ *   • Two surface modes: `canvas-dark` (Torq Black, #050505) bands for hero /
+ *     research / CTA, alternating with white bands for product / pricing /
+ *     editorial. No in-between greys.
+ *   • One Torq Black pill carries every primary CTA. Torq Yellow pills
+ *     appear only inside the hero. A brand gradient (Torq Blue → Torq
+ *     Yellow) is the entire decorative system.
  *   • Cards are lightly-rounded (4px), hairline-bordered, never shadowed.
+ *
+ * Brand palette:
+ *   Torq Black  #050505  — headlines, logo, dark sections
+ *   Torq Blue   #2F63B8  — technology, links, emphasis
+ *   Torq Yellow #FFD100  — motion, energy, CTA accents
+ *   Cloud White #FFFFFF  — main background
+ *   Soft Grey   #F3F4F6  — section backgrounds
+ *   Slate Grey  #4B5563  — body text
  *
  * Components consume tokens through the semantic Tailwind utilities exposed
  * via `@theme inline` (`bg-background`, `text-foreground`, `border-hairline`,
@@ -42,13 +50,13 @@
   --radius-full: 9999px;
 
   /* Brand palette — invariant across themes */
-  --brand-orange: #fc4c02;
-  --brand-magenta: #ef2cc1;
-  --brand-periwinkle: #bdbbff;
-  --brand-mint: #c8f6f9;
-  --brand-canvas-dark: #010120;
-  --brand-surface-dark-soft: #313641;
-  --brand-hairline-on-dark: #26263a;
+  --brand-orange: #2f63b8; /* Torq Blue */
+  --brand-magenta: #ffd100; /* Torq Yellow */
+  --brand-periwinkle: #2f63b8; /* Torq Blue */
+  --brand-mint: #ffd100; /* Torq Yellow */
+  --brand-canvas-dark: #050505; /* Torq Black */
+  --brand-surface-dark-soft: #1f1f1f;
+  --brand-hairline-on-dark: #141414;
 
   /* Brand gradient — used as the single decorative chrome */
   --brand-gradient: linear-gradient(
@@ -64,25 +72,25 @@
 /* -------------------------------------------------------------------------- */
 html {
   color-scheme: light;
-  --app-bg: #ffffff;
-  --app-fg: #000000; /* ink */
-  --app-muted: #ebebeb; /* hairline rail */
-  --app-muted-fg: #959494; /* body / secondary */
-  --app-border: #ebebeb; /* hairline */
-  --app-hairline: #ebebeb;
+  --app-bg: #ffffff; /* Cloud White */
+  --app-fg: #050505; /* Torq Black */
+  --app-muted: #f3f4f6; /* Soft Grey — hairline rail / section backgrounds */
+  --app-muted-fg: #4b5563; /* Slate Grey — body / secondary text */
+  --app-border: #f3f4f6; /* Soft Grey */
+  --app-hairline: #f3f4f6;
   --app-surface: #ffffff;
   --app-surface-elevated: #ffffff;
 
-  --app-primary: #000000; /* ink black CTA pill */
-  --app-primary-hover: #1a1a1a;
+  --app-primary: #050505; /* Torq Black CTA pill */
+  --app-primary-hover: #1f1f1f;
   --app-primary-fg: #ffffff;
-  --app-primary-muted: rgba(0, 0, 0, 0.06);
+  --app-primary-muted: rgba(5, 5, 5, 0.06);
 
   --app-accent: var(--brand-mint);
-  --app-accent-fg: #000000;
-  --app-accent-muted: rgba(200, 246, 249, 0.45);
+  --app-accent-fg: #050505;
+  --app-accent-muted: rgba(255, 209, 0, 0.18);
 
-  --app-ring: rgba(0, 0, 0, 0.45);
+  --app-ring: rgba(5, 5, 5, 0.45);
   --app-destructive: #dc2626;
   --app-destructive-fg: #ffffff;
   --app-success: #059669;
@@ -90,9 +98,9 @@ html {
   --app-glass-border: rgba(0, 0, 0, 0.06);
   --app-whatsapp: #25d366;
   --app-whatsapp-foreground: #ffffff;
-  --app-code-bg: #f5f5f5;
-  --app-code-fg: #000000;
-  --app-wordmark: #ebebeb;
+  --app-code-bg: #f3f4f6;
+  --app-code-fg: #050505;
+  --app-wordmark: #f3f4f6;
 
   --background: var(--app-bg);
   --foreground: var(--app-fg);
@@ -294,18 +302,18 @@ textarea:focus-visible {
   opacity: 0.55;
   background: linear-gradient(
     100deg,
-    rgba(189, 187, 255, 0.9) 0%,
-    rgba(239, 44, 193, 0.65) 50%,
-    rgba(252, 76, 2, 0.6) 100%
+    rgba(47, 99, 184, 0.9) 0%,
+    rgba(255, 209, 0, 0.65) 50%,
+    rgba(47, 99, 184, 0.6) 100%
   );
 }
 .brand-ribbon > .ribbon-inner {
   position: absolute;
   inset: 0;
   background:
-    radial-gradient(ellipse 50% 35% at 30% 30%, rgba(252, 76, 2, 0.55), transparent 70%),
-    radial-gradient(ellipse 45% 30% at 70% 60%, rgba(239, 44, 193, 0.5), transparent 70%),
-    radial-gradient(ellipse 55% 40% at 50% 85%, rgba(189, 187, 255, 0.55), transparent 70%);
+    radial-gradient(ellipse 50% 35% at 30% 30%, rgba(47, 99, 184, 0.55), transparent 70%),
+    radial-gradient(ellipse 45% 30% at 70% 60%, rgba(255, 209, 0, 0.5), transparent 70%),
+    radial-gradient(ellipse 55% 40% at 50% 85%, rgba(47, 99, 184, 0.55), transparent 70%);
   mix-blend-mode: screen;
 }
 
@@ -346,10 +354,10 @@ textarea:focus-visible {
 
 .btn-mint {
   background-color: var(--brand-mint);
-  color: #000000;
+  color: #050505;
 }
 .btn-mint:hover:not(:disabled) {
-  background-color: #b6eef2;
+  background-color: #e6bc00;
 }
 
 .btn-white {
@@ -360,12 +368,23 @@ textarea:focus-visible {
   background-color: #f5f5f5;
 }
 
+/* Referenced across ~10 admin components (redirects, media, CMS entities, page editor, blog
+   form) but never defined — those buttons have been rendering as unstyled text. Muted fill,
+   no border, for lower-emphasis / destructive actions next to a primary button. */
+.btn-secondary {
+  background-color: var(--app-primary-muted);
+  color: var(--app-fg);
+}
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--app-hairline);
+}
+
 .btn-ghost-on-dark {
   background-color: var(--brand-surface-dark-soft);
   color: #ffffff;
 }
 .btn-ghost-on-dark:hover:not(:disabled) {
-  background-color: #3f4452;
+  background-color: #2a2a2a;
 }
 
 .btn-outline {
@@ -386,6 +405,17 @@ textarea:focus-visible {
 }
 .band-dark .btn-outline:hover:not(:disabled) {
   border-color: #ffffff;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Grid items default to min-width:auto (content-based), which lets a card's  */
+/* own content force its grid track — and the whole row — wider than the      */
+/* viewport on mobile. Every card grid here uses fixed column counts, never   */
+/* content-driven auto-fit/auto-fill, so it's always safe to let items shrink */
+/* to the track width instead of their content's natural size.                */
+/* -------------------------------------------------------------------------- */
+.grid > * {
+  min-width: 0;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -530,6 +560,18 @@ textarea:focus-visible {
     transform: translate3d(-2%, 2%, 0) rotate(2deg);
   }
 }
+@keyframes chat-typing-bounce {
+  0%,
+  60%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  30% {
+    transform: translateY(-4px);
+    opacity: 1;
+  }
+}
 
 .animate-fade-up {
   animation: fade-up 0.55s cubic-bezier(0.2, 0, 0, 1) forwards;
@@ -539,6 +581,9 @@ textarea:focus-visible {
 }
 .animate-ribbon {
   animation: ribbon-drift 16s ease-in-out infinite;
+}
+.chat-typing-dot {
+  animation: chat-typing-bounce 1.2s ease-in-out infinite;
 }
 
 .animate-delay-1 {
@@ -560,7 +605,8 @@ textarea:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-up,
   .animate-scale-in,
-  .animate-ribbon {
+  .animate-ribbon,
+  .chat-typing-dot {
     animation: none;
   }
   .card-hover:hover {

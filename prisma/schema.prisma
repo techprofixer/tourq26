@@ -1,6 +1,6 @@
-// TorqStudio Interview Hub — Prisma + MongoDB Atlas
+// Torq Studio — Prisma + MongoDB Atlas
 // Set DATABASE_URL=mongodb+srv://.../YOUR_DB_NAME?retryWrites=true&w=majority
-// Push schema: npx prisma db push   |   Seed: npm run db:seed
+// Push schema: npx prisma db push   |   Seed CMS data: npm run db:seed:cms
 
 generator client {
   provider = "prisma-client-js"
@@ -11,271 +11,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum QuestionType {
-  DSA
-  UI
-  QUIZ
-  FRONTEND_SYSTEM_DESIGN
-}
-
-model User {
-  id                   String    @id @default(cuid()) @map("_id")
-  name                 String?
-  email                String?   @unique
-  emailVerified        DateTime?
-  image                String?
-  passwordHash         String?
-  role                 String    @default("candidate")
-  subscriptionTier     String    @default("free")
-  monthlyQuestionViews Int       @default(0)
-  monthResetAt         DateTime?
-  studentVerified      Boolean   @default(false)
-  solvedCount          Int       @default(0)
-  totalScoreSum        Float     @default(0)
-  scoreSamples         Int       @default(0)
-  streakDays           Int       @default(0)
-  lastActiveDate       DateTime?
-
-  accounts        Account[]
-  sessions        Session[]
-  progress        UserProgress[]
-  planEnrollments UserPlanEnrollment[]
-  talentPool      TalentPoolEntry?
-  mockBookings    MockInterviewBooking[]
-  forumPosts      ForumPost[]
-  jobPostings     JobPosting[]             @relation("PostedJobs")
-}
-
-model Account {
-  id                String @id @default(cuid()) @map("_id")
-  userId            String
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String?
-  access_token      String?
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String?
-  session_state     String?
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([provider, providerAccountId])
-}
-
-model Session {
-  id           String   @id @default(cuid()) @map("_id")
-  sessionToken String   @unique
-  userId       String
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-// MongoDB requires an explicit @id; NextAuth still uses @@unique([identifier, token]).
-model VerificationToken {
-  id         String   @id @default(cuid()) @map("_id")
-  identifier String
-  token      String
-  expires    DateTime
-
-  @@unique([identifier, token])
-}
-
-model CompanyTag {
-  id       String @id @default(cuid()) @map("_id")
-  name     String @unique
-  category String
-
-  questionLinks QuestionCompanyTag[]
-}
-
-// Explicit join — MongoDB does not support implicit many-to-many in Prisma.
-model QuestionCompanyTag {
-  id             String @id @default(cuid()) @map("_id")
-  questionId     String
-  companyTagId   String
-
-  question   Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  companyTag CompanyTag @relation(fields: [companyTagId], references: [id], onDelete: Cascade)
-
-  @@unique([questionId, companyTagId])
-}
-
-model Question {
-  id               String       @id @default(cuid()) @map("_id")
-  type             QuestionType
-  title            String
-  description      String
-  difficulty       String
-  topic            String
-  framework        String?
-  defaultLanguage  String?
-  starterCode      String?
-  tests            String?
-  officialSolution String?
-  systemDesignMeta String?
-  createdAt        DateTime     @default(now())
-
-  companyTagLinks QuestionCompanyTag[]
-  progress        UserProgress[]
-  forumThreads    ForumThread[]
-}
-
-model UserProgress {
-  id         String   @id @default(cuid()) @map("_id")
-  userId     String
-  questionId String
-  solved     Boolean  @default(false)
-  score      Float?
-  attempts   Int      @default(0)
-  lastCode   String?
-  updatedAt  DateTime @updatedAt
-
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, questionId])
-}
-
-model PreparationPlan {
-  id           String @id @default(cuid()) @map("_id")
-  slug         String @unique
-  name         String
-  description  String
-  durationDays Int
-  milestones   String
-  sortOrder    Int    @default(0)
-
-  enrollments UserPlanEnrollment[]
-}
-
-model UserPlanEnrollment {
-  id             String   @id @default(cuid()) @map("_id")
-  userId         String
-  planId         String
-  startedAt      DateTime @default(now())
-  milestonesDone Int      @default(0)
-
-  user User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan PreparationPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, planId])
-}
-
-model JobPosting {
-  id          String   @id @default(cuid()) @map("_id")
-  companyName String
-  title       String
-  description String
-  location    String
-  skills      String
-  postedById  String?
-  createdAt   DateTime @default(now())
-
-  postedBy User? @relation("PostedJobs", fields: [postedById], references: [id])
-}
-
-model TalentPoolEntry {
-  id         String   @id @default(cuid()) @map("_id")
-  userId     String   @unique
-  optIn      Boolean  @default(false)
-  avgScore   Float    @default(0)
-  percentile Float?
-  skills     String
-  location   String?
-  headline   String?
-  updatedAt  DateTime @updatedAt
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model MockInterviewBooking {
-  id               String    @id @default(cuid()) @map("_id")
-  userId           String
-  stripeSessionId  String?
-  scheduledAt      DateTime?
-  calendlyEventUrl String?
-  status           String    @default("pending")
-  amountInr        Int       @default(2499)
-  createdAt        DateTime  @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-model ForumThread {
-  id         String   @id @default(cuid()) @map("_id")
-  questionId String
-  title      String
-  createdAt  DateTime @default(now())
-
-  question Question    @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  posts    ForumPost[]
-}
-
-model ForumPost {
-  id        String   @id @default(cuid()) @map("_id")
-  threadId  String
-  userId    String
-  body      String
-  createdAt DateTime @default(now())
-
-  thread ForumThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
-  user   User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-// --- Interview Q&A banks (admin-managed; e.g. Node.js, React — seed fills `nodejs` from static file) ---
-
-model InterviewQuestionBank {
-  id          String @id @default(cuid()) @map("_id")
-  slug        String @unique
-  label       String
-  description String?
-  sortOrder   Int    @default(0)
-
-  categories InterviewBankCategory[]
-  items      InterviewBankItem[]
-}
-
-model InterviewBankCategory {
-  id        String @id @default(cuid()) @map("_id")
-  bankId    String
-  bank      InterviewQuestionBank @relation(fields: [bankId], references: [id], onDelete: Cascade)
-  slug      String
-  label     String
-  sortOrder Int    @default(0)
-
-  items InterviewBankItem[]
-
-  @@unique([bankId, slug])
-}
-
-model InterviewBankItem {
-  id            String @id @default(cuid()) @map("_id")
-  bankId        String
-  bank          InterviewQuestionBank @relation(fields: [bankId], references: [id], onDelete: Cascade)
-  /** Stable URL segment within this bank (legacy numeric ids preserved for `nodejs` seed) */
-  publicId      String
-  categoryId    String
-  category      InterviewBankCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  question      String
-  answer        String
-  difficulty    String?
-  categoryBadge String?
-  answerIntro   String?
-  bulletsJson   String?
-  codeExample   String?
-  sourceName    String?
-  sourceUrl     String?
-  sortOrder     Int    @default(0)
-
-  @@unique([bankId, publicId])
-}
-
-
 // =============================================================================
-// Torq Studio CMS (marketing site) � MongoDB collections
+// Torq Studio CMS (marketing site) � MongoDB collections
 // =============================================================================
 
 // Enums
@@ -287,6 +24,7 @@ enum PageType {
   SOLUTION
   INDUSTRY
   TECHNOLOGY
+  LOCATION
   PRICING
   CASE_STUDY
   BLOG
@@ -324,6 +62,7 @@ enum EntityKind {
   SOLUTION
   INDUSTRY
   TECHNOLOGY
+  LOCATION
   AUTHOR
   CLIENT
   CATEGORY
@@ -423,8 +162,8 @@ model CmsUser {
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
-  transitions WorkflowEvent[]
-  leadsAssigned Lead[] @relation("LeadAssignee")
+  transitions   WorkflowEvent[]
+  leadsAssigned Lead[]          @relation("LeadAssignee")
 }
 
 model RolePermission {
@@ -463,7 +202,7 @@ model Tag {
 }
 
 model PageCategory {
-  id         String @id @default(cuid()) @map("_id")
+  id         String   @id @default(cuid()) @map("_id")
   pageId     String
   categoryId String
   page       Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
@@ -476,8 +215,8 @@ model PageTag {
   id     String @id @default(cuid()) @map("_id")
   pageId String
   tagId  String
-  page   Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  page   Page   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
   @@unique([pageId, tagId])
 }
@@ -516,18 +255,16 @@ model Page {
   /// Manual related overrides: { [LinkSlot]: string[] pageIds, lockSlots?: string[] }
   relatedOverrides Json?
 
-  seo           SeoMetadata?
-  brief         ContentBrief?
-  versions      PageVersion[]
-  categoryLinks PageCategory[]
-  tagLinks      PageTag[]
-  entityLinks   PageEntity[]
-  linkEdgesOut  InternalLinkEdge[] @relation("LinkSource")
-  linkEdgesIn   InternalLinkEdge[] @relation("LinkTarget")
+  seo            SeoMetadata?
+  brief          ContentBrief?
+  versions       PageVersion[]
+  categoryLinks  PageCategory[]
+  tagLinks       PageTag[]
+  entityLinks    PageEntity[]
+  linkEdgesOut   InternalLinkEdge[]    @relation("LinkSource")
+  linkEdgesIn    InternalLinkEdge[]    @relation("LinkTarget")
   workflowEvents WorkflowEvent[]
-  caseStudy     CaseStudy?
-  blogMeta      BlogMeta?
-  template      ProgrammaticTemplate? @relation(fields: [templateId], references: [id])
+  template       ProgrammaticTemplate? @relation(fields: [templateId], references: [id])
 
   @@index([status, publishedAt])
   @@index([type, status])
@@ -537,47 +274,47 @@ model Page {
 }
 
 model SeoMetadata {
-  id              String  @id @default(cuid()) @map("_id")
-  pageId          String  @unique
-  metaTitle       String?
-  metaDescription String?
-  canonical       String?
-  robotsIndex     Boolean @default(true)
-  robotsFollow    Boolean @default(true)
-  ogTitle         String?
-  ogDescription   String?
-  ogImageId       String?
-  ogType          String  @default("website")
-  twitterCard     String  @default("summary_large_image")
-  twitterTitle    String?
+  id                 String   @id @default(cuid()) @map("_id")
+  pageId             String   @unique
+  metaTitle          String?
+  metaDescription    String?
+  canonical          String?
+  robotsIndex        Boolean  @default(true)
+  robotsFollow       Boolean  @default(true)
+  ogTitle            String?
+  ogDescription      String?
+  ogImageId          String?
+  ogType             String   @default("website")
+  twitterCard        String   @default("summary_large_image")
+  twitterTitle       String?
   twitterDescription String?
-  twitterImageId  String?
+  twitterImageId     String?
   /// Selected schema template keys e.g. ["Service","FAQPage"]
-  schemaKeys      String[] @default([])
+  schemaKeys         String[] @default([])
   /// Optional raw JSON-LD array merged after auto builders
-  jsonLdCustom    Json?
-  breadcrumbLabel String?
-  focusKeyword    String?
+  jsonLdCustom       Json?
+  breadcrumbLabel    String?
+  focusKeyword       String?
 
   page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
 }
 
 model ContentBrief {
-  id                    String        @id @default(cuid()) @map("_id")
-  pageId                String        @unique
-  targetKeyword         String?
-  secondaryKeywords     String[]      @default([])
-  searchIntent          SearchIntent?
-  targetAudience        String?
-  buyerStage            BuyerStage?
-  competitorUrls        String[]      @default([])
-  entityList            String[]      @default([])
-  questions             String[]      @default([])
-  faqs                  Json?
-  suggestedInternalLinks String[]     @default([])
-  suggestedExternalLinks String[]     @default([])
-  contentScore          Int?
-  notes                 String?
+  id                     String        @id @default(cuid()) @map("_id")
+  pageId                 String        @unique
+  targetKeyword          String?
+  secondaryKeywords      String[]      @default([])
+  searchIntent           SearchIntent?
+  targetAudience         String?
+  buyerStage             BuyerStage?
+  competitorUrls         String[]      @default([])
+  entityList             String[]      @default([])
+  questions              String[]      @default([])
+  faqs                   Json?
+  suggestedInternalLinks String[]      @default([])
+  suggestedExternalLinks String[]      @default([])
+  contentScore           Int?
+  notes                  String?
 
   page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
 }
@@ -599,26 +336,26 @@ model PageVersion {
 }
 
 model BlockType {
-  id          String   @id @default(cuid()) @map("_id")
-  typeKey     String   @unique
-  label       String
-  category    String
+  id           String   @id @default(cuid()) @map("_id")
+  typeKey      String   @unique
+  label        String
+  category     String
   /// Zod-compatible JSON Schema for props
-  schemaJson  Json
+  schemaJson   Json
   defaultProps Json
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
 model WorkflowEvent {
-  id          String         @id @default(cuid()) @map("_id")
-  pageId      String
-  fromStatus  WorkflowStatus
-  toStatus    WorkflowStatus
-  actorId     String?
-  comment     String?
-  createdAt   DateTime       @default(now())
+  id         String         @id @default(cuid()) @map("_id")
+  pageId     String
+  fromStatus WorkflowStatus
+  toStatus   WorkflowStatus
+  actorId    String?
+  comment    String?
+  createdAt  DateTime       @default(now())
 
   page  Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
   actor CmsUser? @relation(fields: [actorId], references: [id])
@@ -631,6 +368,9 @@ model WorkflowEvent {
 // Entities (normalized + polymorphic links)
 // ─────────────────────────────────────────────
 
+// Service/Solution/Industry/Technology are a deliberately unified taxonomy shape — same fields,
+// same optional category/parentId, so admin CMS forms and CmsEntityPage/makeHubPage can treat all
+// four generically. Keep new fields added to one of these mirrored across all four.
 model Service {
   id          String   @id @default(cuid()) @map("_id")
   slug        String   @unique
@@ -638,6 +378,7 @@ model Service {
   summary     String?
   description String?
   icon        String?
+  category    String?
   parentId    String?
   sortOrder   Int      @default(0)
   pageId      String?
@@ -645,6 +386,7 @@ model Service {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  @@index([category])
   @@index([parentId])
 }
 
@@ -655,11 +397,16 @@ model Solution {
   summary     String?
   description String?
   icon        String?
+  category    String?
+  parentId    String?
   sortOrder   Int      @default(0)
   pageId      String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([parentId])
 }
 
 model Industry {
@@ -669,11 +416,35 @@ model Industry {
   summary     String?
   description String?
   icon        String?
+  category    String?
+  parentId    String?
   sortOrder   Int      @default(0)
   pageId      String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([parentId])
+}
+
+model Location {
+  id          String   @id @default(cuid()) @map("_id")
+  slug        String   @unique
+  name        String
+  summary     String?
+  description String?
+  icon        String?
+  category    String?
+  parentId    String?
+  sortOrder   Int      @default(0)
+  pageId      String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([parentId])
 }
 
 model Technology {
@@ -684,6 +455,7 @@ model Technology {
   description String?
   icon        String?
   category    String?
+  parentId    String?
   sortOrder   Int      @default(0)
   pageId      String?
   isActive    Boolean  @default(true)
@@ -691,6 +463,7 @@ model Technology {
   updatedAt   DateTime @updatedAt
 
   @@index([category])
+  @@index([parentId])
 }
 
 model EntityRelation {
@@ -725,86 +498,16 @@ model PageEntity {
 // Authors / Clients / Testimonials / Case Studies
 // ─────────────────────────────────────────────
 
-model Author {
-  id        String   @id @default(cuid()) @map("_id")
-  slug      String   @unique
-  name      String
-  title     String?
-  bio       String?
-  avatarId  String?
-  sameAs    String[] @default([])
-  email     String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  blogMetas BlogMeta[]
-}
-
-model Client {
-  id        String   @id @default(cuid()) @map("_id")
-  slug      String   @unique
-  name      String
-  logoId    String?
-  website   String?
-  industry  String?
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-
-  testimonials Testimonial[]
-  caseStudies  CaseStudy[]
-}
-
 model Testimonial {
   id        String   @id @default(cuid()) @map("_id")
   quote     String
-  authorName String
-  authorTitle String?
-  rating    Int?
-  clientId  String?
-  mediaId   String?
-  isFeatured Boolean @default(false)
+  result    String?
+  name      String
+  role      String?
+  company   String?
+  rating    Int      @default(5)
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
-
-  client Client? @relation(fields: [clientId], references: [id])
-}
-
-model CaseStudy {
-  id             String   @id @default(cuid()) @map("_id")
-  pageId         String   @unique
-  clientId       String?
-  problem        String?
-  solution       String?
-  architecture   String?
-  timeline       String?
-  businessResult String?
-  clientIndustry String?
-  team           Json?
-  technologies   String[] @default([])
-  screenshots    String[] @default([])
-  downloadIds    String[] @default([])
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  page   Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  client Client? @relation(fields: [clientId], references: [id])
-}
-
-model BlogMeta {
-  id           String   @id @default(cuid()) @map("_id")
-  pageId       String   @unique
-  authorId     String?
-  series       String?
-  toc          Json?
-  aiSummary    String?
-  keyTakeaways String[] @default([])
-  newsletterCta Boolean @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  page   Page    @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  author Author? @relation(fields: [authorId], references: [id])
 }
 
 // ─────────────────────────────────────────────
@@ -812,33 +515,33 @@ model BlogMeta {
 // ─────────────────────────────────────────────
 
 model PricingPlan {
-  id          String   @id @default(cuid()) @map("_id")
-  slug        String   @unique
-  name        String
-  summary     String?
-  priceLabel  String?
-  currency    String?
-  features    Json?
-  ctaLabel    String?
-  ctaHref     String?
-  pageId      String?
-  sortOrder   Int      @default(0)
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Faq {
   id         String   @id @default(cuid()) @map("_id")
-  question   String
-  answer     String
-  entityKind EntityKind?
-  entityId   String?
+  slug       String   @unique
+  name       String
+  summary    String?
+  priceLabel String?
+  currency   String?
+  features   Json?
+  ctaLabel   String?
+  ctaHref    String?
   pageId     String?
   sortOrder  Int      @default(0)
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+}
+
+model Faq {
+  id         String      @id @default(cuid()) @map("_id")
+  question   String
+  answer     String
+  entityKind EntityKind?
+  entityId   String?
+  pageId     String?
+  sortOrder  Int         @default(0)
+  isActive   Boolean     @default(true)
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
   @@index([entityKind, entityId])
 }
@@ -895,7 +598,9 @@ model MenuItem {
 
 model Footer {
   id        String   @id @default(cuid()) @map("_id")
-  key       String   @unique
+  key       String   @unique @default("default")
+  blurb     String?
+  tagline   String?
   columns   Json
   legal     Json?
   socials   Json?
@@ -928,17 +633,17 @@ model Form {
 }
 
 model Lead {
-  id           String   @id @default(cuid()) @map("_id")
-  formId       String
-  payload      Json
-  pagePath     String?
-  entityKind   EntityKind?
-  entityId     String?
-  source       String?
-  status       String   @default("new")
-  assigneeId   String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id         String      @id @default(cuid()) @map("_id")
+  formId     String
+  payload    Json
+  pagePath   String?
+  entityKind EntityKind?
+  entityId   String?
+  source     String?
+  status     String      @default("new")
+  assigneeId String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
 
   form     Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
   assignee CmsUser? @relation("LeadAssignee", fields: [assigneeId], references: [id])
@@ -980,36 +685,36 @@ model SchemaTemplate {
 }
 
 model ProgrammaticTemplate {
-  id              String           @id @default(cuid()) @map("_id")
-  key             String           @unique
-  name            String
-  axis            ProgrammaticAxis
-  pathPattern     String
-  titlePattern    String
+  id               String           @id @default(cuid()) @map("_id")
+  key              String           @unique
+  name             String
+  axis             ProgrammaticAxis
+  pathPattern      String
+  titlePattern     String
   metaTitlePattern String?
-  metaDescPattern String?
-  blockBlueprint  Json
-  schemaKeys      String[]         @default([])
-  minContentScore Int              @default(60)
-  isActive        Boolean          @default(true)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  metaDescPattern  String?
+  blockBlueprint   Json
+  schemaKeys       String[]         @default([])
+  minContentScore  Int              @default(60)
+  isActive         Boolean          @default(true)
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   pages Page[]
   jobs  ProgrammaticJob[]
 }
 
 model ProgrammaticJob {
-  id           String   @id @default(cuid()) @map("_id")
+  id           String    @id @default(cuid()) @map("_id")
   templateId   String
-  status       String   @default("queued")
+  status       String    @default("queued")
   config       Json
-  total        Int      @default(0)
-  createdCount Int      @default(0)
-  skippedCount Int      @default(0)
-  errorCount   Int      @default(0)
+  total        Int       @default(0)
+  createdCount Int       @default(0)
+  skippedCount Int       @default(0)
+  errorCount   Int       @default(0)
   log          Json?
-  createdAt    DateTime @default(now())
+  createdAt    DateTime  @default(now())
   finishedAt   DateTime?
 
   template ProgrammaticTemplate @relation(fields: [templateId], references: [id])
@@ -1018,16 +723,292 @@ model ProgrammaticJob {
 }
 
 model SiteSettings {
-  id              String   @id @default(cuid()) @map("_id")
-  key             String   @unique @default("default")
-  siteUrl         String?
-  siteName        String   @default("Torq Studio")
-  twitterHandle   String?
-  socialProfiles  String[] @default([])
-  defaultOgImageId String?
-  organizationJson Json?
-  llmsTxtExtra    String?
-  featureFlags    Json?
-  updatedAt       DateTime @updatedAt
+  id                 String   @id @default(cuid()) @map("_id")
+  key                String   @unique @default("default")
+  siteUrl            String?
+  siteName           String   @default("Torq Studio")
+  defaultTitle       String?
+  defaultDescription String?
+  titleTemplate      String?
+  keywords           String[] @default([])
+  ogTitle            String?
+  ogDescription      String?
+  twitterHandle      String?
+  twitterTitle       String?
+  twitterDescription String?
+  socialProfiles     String[] @default([])
+  defaultOgImageId   String?
+  organizationJson   Json?
+  llmsTxtExtra       String?
+  featureFlags       Json?
+  googleSiteVerification String?
+  bingSiteVerification   String?
+  robotsNoIndex          Boolean  @default(false)
+  updatedAt          DateTime @updatedAt
 }
 
+model BlogPost {
+  id           String   @id @default(cuid()) @map("_id")
+  slug         String   @unique
+  title        String
+  seoTitle     String?
+  description  String
+  excerpt      String?
+  date         String
+  dateUpdated  String?
+  readTime     String
+  body         String
+  authorName   String?
+  status       String   @default("published")
+  coverImage   String?
+  tags         String[] @default([])
+  focusKeyword String?
+  wordCount    Int?
+}
+
+model ContactSubmission {
+  id        String   @id @default(cuid()) @map("_id")
+  name      String
+  email     String
+  company   String?
+  message   String
+  createdAt DateTime @default(now())
+
+  source      String?
+  medium      String?
+  campaign    String?
+  term        String?
+  content     String?
+  landingPage String?
+}
+
+model ChatFeedback {
+  id             String   @id @default(cuid()) @map("_id")
+  rating         String // "up" | "down"
+  userQuery      String
+  assistantReply String
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model ChatQueryLog {
+  id             String   @id @default(cuid()) @map("_id")
+  query          String
+  fromSuggestion Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+model CaseStudyPost {
+  id          String   @id @default(cuid()) @map("_id")
+  slug        String   @unique
+  title       String
+  seoTitle    String?
+  client      String
+  industry    String
+  industries  String[] @default([])
+  challenge   String
+  outcome     String
+  metric      String
+  metricLabel String
+  icon        String?
+  coverImage  String
+  coverAlt    String
+  description String
+  date        String
+  readTime    String
+  services    String[] @default([])
+  body        String
+  sortOrder   Int      @default(0)
+}
+
+model TechNewsPost {
+  id           String   @id @default(cuid()) @map("_id")
+  slug         String   @unique
+  title        String
+  seoTitle     String?
+  dek          String
+  category     String
+  description  String
+  excerpt      String?
+  date         String
+  dateUpdated  String?
+  readTime     String
+  body         String
+  authorName   String?
+  status       String   @default("published")
+  coverImage   String?
+  focusKeyword String?
+  wordCount    Int?
+}
+
+model HomePageContent {
+  id  String @id @default(cuid()) @map("_id")
+  key String @unique @default("default")
+
+  heroEyebrow           String?
+  heroHeading           String?
+  heroSubheading        String?
+  heroPrimaryCtaLabel   String?
+  heroPrimaryCtaHref    String?
+  heroSecondaryCtaLabel String?
+  heroSecondaryCtaHref  String?
+  heroTertiaryCtaLabel  String?
+  heroTertiaryCtaHref   String?
+  heroTags              String[] @default([])
+
+  heroImageEnabled Boolean @default(false)
+  heroImageUrl     String?
+  heroImageAlt     String?
+
+  sliderEnabled Boolean @default(false)
+  sliderHeading String?
+  /// Array of { imageUrl, alt, heading, caption, ctaLabel, ctaHref }
+  sliderItems   Json?
+
+  offerBannerEnabled  Boolean @default(false)
+  offerBannerText     String?
+  offerBannerCtaLabel String?
+  offerBannerCtaHref  String?
+
+  offersEnabled Boolean @default(false)
+  offersHeading String?
+  offersIntro   String?
+  /// Array of { title, description, badge, ctaLabel, ctaHref }
+  offersItems   Json?
+
+  servicesEyebrow String?
+  servicesHeading String?
+  servicesIntro   String?
+  /// Array of { slug, title, description, result, category, icon }
+  servicesItems   Json?
+
+  whyUsEyebrow String?
+  whyUsHeading String?
+  whyUsIntro   String?
+  /// Array of { eyebrow, stat, title, description }
+  whyUsItems   Json?
+
+  caseStudiesEyebrow String?
+  caseStudiesHeading String?
+  caseStudiesIntro   String?
+
+  ctaEyebrow        String?
+  ctaHeading        String?
+  ctaBody           String?
+  ctaPrimaryLabel   String?
+  ctaPrimaryHref    String?
+  ctaSecondaryLabel String?
+  ctaSecondaryHref  String?
+  ctaEmail          String?
+  ctaFootnote       String?
+
+  snapshotHeading    String?
+  snapshotParagraphs String[] @default([])
+
+  updatedAt DateTime @updatedAt
+}
+
+model BrandSettings {
+  id               String   @id @default(cuid()) @map("_id")
+  key              String   @unique @default("default")
+  logoUrl          String?
+  logoDarkUrl      String?
+  faviconUrl       String?
+  colorPrimary     String?
+  colorAccent      String?
+  fontHeading      String?
+  fontBody         String?
+  voiceDescription String?
+  voiceGuidelines  String?
+  updatedAt        DateTime @updatedAt
+}
+
+model ActivityLogEntry {
+  id         String   @id @default(cuid()) @map("_id")
+  entityType String
+  entityId   String?
+  action     String
+  summary    String
+  createdAt  DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────
+// RAG chatbot knowledge base
+// ─────────────────────────────────────────────
+
+// One row per embedded chunk of site content. Populated by `scripts/rag/build-knowledge-base.ts`.
+// Retrieval uses a MongoDB Atlas Vector Search index on `embedding` — see `scripts/rag/create-vector-index.ts`.
+model KnowledgeChunk {
+  id         String   @id @default(cuid()) @map("_id")
+  sourceType String
+  sourceId   String
+  chunkIndex Int      @default(0)
+  title      String
+  content    String
+  url        String?
+  embedding  Float[]
+  updatedAt  DateTime @updatedAt
+
+  @@unique([sourceType, sourceId, chunkIndex])
+  @@index([sourceType, sourceId])
+}
+
+// ─────────────────────────────────────────────
+// Business Systems Audit — Meta Ads lead qualification
+// (/business-systems, /business-systems/audit — see src/lib/business-systems/*)
+// ─────────────────────────────────────────────
+
+enum AuditLeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CALL_SCHEDULED
+  CALL_COMPLETED
+  PROPOSAL_SENT
+  NEGOTIATION
+  WON
+  LOST
+}
+
+// businessType/teamSize/budget/timeline/currentProblems/requestedServices are plain strings
+// validated against the option lists in src/lib/business-systems/options.ts rather than Prisma
+// enums — Mongo has no schema-level enum enforcement anyway, so keeping them app-level config
+// means adding/renaming an option doesn't require a migration. leadCategory (LOW/MEDIUM/HIGH/HOT)
+// is derived from leadScore on read (src/lib/business-systems/scoring.ts), not stored, so the
+// scoring bands stay a single-place config change.
+model AuditLead {
+  id                String   @id @default(cuid()) @map("_id")
+  name              String
+  email             String
+  phone             String
+  companyName       String
+  website           String?
+  businessType      String
+  teamSize          String
+  currentProblems   String[] @default([])
+  requestedServices String[] @default([])
+  budget            String
+  timeline          String
+  message           String?
+
+  leadScore  Int             @default(0)
+  leadStatus AuditLeadStatus @default(NEW)
+
+  source      String?
+  medium      String?
+  campaign    String?
+  term        String?
+  content     String?
+  landingPage String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+  @@index([leadStatus, createdAt])
+  @@index([email])
+  @@index([phone])
+}

@@ -14,9 +14,24 @@ export {
   type FeatureFlagKey,
 } from "@/lib/feature-flags-schema";
 
+const CACHE_TTL_MS = 30_000;
+type FlagsCache = { flags: Record<FeatureFlagKey, boolean>; expiresAt: number } | null;
+
+/**
+ * Next.js dev (Turbopack) can give route handlers and pages separate module
+ * instances, so a plain module-level variable isn't reliably shared between
+ * them — same reason `src/lib/hub/prisma.ts` stashes its singleton on `globalThis`.
+ */
+const globalForFlags = globalThis as unknown as { featureFlagsCache?: FlagsCache };
+
+/** Reads through a short in-memory cache — this runs on every request via middleware. */
 export async function getResolvedFeatureFlags(): Promise<Record<FeatureFlagKey, boolean>> {
+  const cache = globalForFlags.featureFlagsCache;
+  if (cache && cache.expiresAt > Date.now()) return cache.flags;
   const doc = await readFeatureFlagsDocument();
-  return resolveFeatureFlagsFromStored(doc?.values ?? {});
+  const flags = resolveFeatureFlagsFromStored(doc?.values ?? {});
+  globalForFlags.featureFlagsCache = { flags, expiresAt: Date.now() + CACHE_TTL_MS };
+  return flags;
 }
 
 export async function isFeatureEnabled(key: FeatureFlagKey): Promise<boolean> {
@@ -36,6 +51,7 @@ export async function saveFeatureFlagValues(
     values: next,
     updatedAt: new Date().toISOString(),
   });
+  globalForFlags.featureFlagsCache = null;
   return next;
 }
 

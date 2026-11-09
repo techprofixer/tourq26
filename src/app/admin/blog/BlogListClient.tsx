@@ -3,14 +3,9 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { BlogPost } from "@/lib/content";
-import { BlogListActions } from "./BlogListActions";
-
-function formatDate(s?: string) {
-  if (!s) return "—";
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return s;
-  return d.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
-}
+import { EntityListActions } from "@/components/admin/EntityListActions";
+import { AdminSearchBox } from "@/components/admin/AdminSearchBox";
+import { formatShortDate } from "@/lib/date-format";
 
 type Filter = "all" | "published" | "draft";
 
@@ -76,22 +71,7 @@ export function BlogListClient({
             );
           })}
         </div>
-        <div className="relative sm:w-72">
-          <span
-            aria-hidden
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-          >
-            ⌕
-          </span>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search title, slug, or tag…"
-            className="text-input pl-8"
-            aria-label="Search posts"
-          />
-        </div>
+        <AdminSearchBox value={query} onChange={setQuery} placeholder="Search title, slug, or tag…" label="Search posts" />
       </div>
 
       {filtered.length === 0 ? (
@@ -149,13 +129,17 @@ export function BlogListClient({
                       </div>
                     </td>
                     <td className="hidden whitespace-nowrap px-4 py-3 text-[13px] text-muted-foreground sm:table-cell">
-                      {formatDate(post.dateUpdated ?? post.date)}
+                      {formatShortDate(post.dateUpdated ?? post.date)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right">
                       <StatusPill status={status} />
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right">
-                      <BlogListActions slug={post.slug} />
+                      <EntityListActions
+                        editHref={`/admin/blog/${encodeURIComponent(post.slug)}/edit`}
+                        deleteUrl={`/api/admin/content/blog/${encodeURIComponent(post.slug)}`}
+                        confirmMessage="Delete this post? This cannot be undone."
+                      />
                     </td>
                   </tr>
                 );

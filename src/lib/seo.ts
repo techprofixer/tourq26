@@ -92,6 +92,26 @@ export function webPageJsonLd(params: {
   };
 }
 
+export function serviceJsonLd(params: {
+  siteUrl: string;
+  path: string;
+  name: string;
+  description: string;
+  siteName: string;
+  areaServed?: string;
+}) {
+  const url = `${params.siteUrl}${params.path.startsWith("/") ? params.path : `/${params.path}`}`;
+  return {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    name: params.name,
+    description: params.description,
+    url,
+    provider: { "@type": "Organization", name: params.siteName, url: params.siteUrl },
+    areaServed: params.areaServed ?? "Worldwide",
+  };
+}
+
 export function servicesItemListJsonLd(siteUrl: string, services: { name: string; description: string }[]) {
   return {
     "@context": "https://schema.org",

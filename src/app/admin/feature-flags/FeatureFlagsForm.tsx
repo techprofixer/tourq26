@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FeatureFlagDefinition, FeatureFlagKey } from "@/lib/feature-flags-schema";
+import { Spinner } from "@/components/Spinner";
 
 type Catalog = FeatureFlagDefinition[];
 
@@ -64,7 +65,11 @@ export function FeatureFlagsForm() {
   }
 
   if (loading || !values) {
-    return <p className="text-muted-foreground">Loading flags…</p>;
+    return (
+      <p className="flex items-center gap-2 text-muted-foreground">
+        <Spinner className="h-4 w-4" /> Loading flags…
+      </p>
+    );
   }
 
   return (
@@ -125,6 +130,7 @@ export function FeatureFlagsForm() {
           onClick={() => save()}
           className="btn-base btn-primary text-[12px]"
         >
+          {saving ? <Spinner className="h-4 w-4" /> : null}
           {saving ? "Saving…" : "Save changes"}
         </button>
         <button

@@ -1,7 +1,7 @@
 import type { CmsBlock } from "@/lib/cms/blocks";
 
-const TITLE_MAX = 60;
-const DESC_MAX = 155;
+export const TITLE_MAX = 60;
+export const DESC_MAX = 155;
 
 /** Strip HTML tags to plain text (SSR-safe). */
 export function stripHtmlToText(html: string): string {

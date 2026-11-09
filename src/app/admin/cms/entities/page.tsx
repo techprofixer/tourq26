@@ -13,17 +13,19 @@ export default async function AdminCmsEntitiesPage() {
     solutions: [] as Awaited<ReturnType<typeof listEntities>>,
     industries: [] as Awaited<ReturnType<typeof listEntities>>,
     technologies: [] as Awaited<ReturnType<typeof listEntities>>,
+    locations: [] as Awaited<ReturnType<typeof listEntities>>,
   };
   let dbError: string | null = null;
 
   try {
-    const [services, solutions, industries, technologies] = await Promise.all([
+    const [services, solutions, industries, technologies, locations] = await Promise.all([
       listEntities("SERVICE"),
       listEntities("SOLUTION"),
       listEntities("INDUSTRY"),
       listEntities("TECHNOLOGY"),
+      listEntities("LOCATION"),
     ]);
-    initial = { services, solutions, industries, technologies };
+    initial = { services, solutions, industries, technologies, locations };
   } catch (e) {
     dbError = e instanceof Error ? e.message : "Database unavailable";
   }
@@ -36,7 +38,7 @@ export default async function AdminCmsEntitiesPage() {
           { label: "Entities" },
         ]}
         title="Entities"
-        description="Services, Solutions, Industries, and Technologies — the graph that powers SEO and internal linking."
+        description="Services, Solutions, Industries, Technologies, and Locations — the graph that powers SEO and internal linking."
       />
       {dbError ? (
         <p className="mt-6 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm">

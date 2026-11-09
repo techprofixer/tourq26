@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { PageWithSeo } from "@/lib/cms/pages";
 import { getPageBlocks } from "@/lib/cms/pages";
-import { faqPageJsonLd, webPageJsonLd, breadcrumbListJsonLd } from "@/lib/seo";
+import { faqPageJsonLd, webPageJsonLd, breadcrumbListJsonLd, serviceJsonLd } from "@/lib/seo";
 
 function stripHtml(html: string): string {
   return html
@@ -42,18 +42,33 @@ export function buildPageMetadata(
   };
 }
 
-export function buildPageJsonLd(page: PageWithSeo, siteUrl: string) {
+export function buildPageJsonLd(page: PageWithSeo, siteUrl: string, siteName: string) {
   const blocks = getPageBlocks(page);
   const schemas: Record<string, unknown>[] = [];
+  const name = page.seo?.metaTitle || page.title;
+  const description = page.seo?.metaDescription || page.excerpt || "";
 
   schemas.push(
     webPageJsonLd({
       siteUrl,
       path: page.path,
-      name: page.seo?.metaTitle || page.title,
-      description: page.seo?.metaDescription || page.excerpt || "",
+      name,
+      description,
     }),
   );
+
+  if (page.type === "SERVICE" || page.type === "LOCATION") {
+    schemas.push(
+      serviceJsonLd({
+        siteUrl,
+        path: page.path,
+        name,
+        description,
+        siteName,
+        areaServed: page.type === "LOCATION" ? page.seo?.breadcrumbLabel || undefined : undefined,
+      }),
+    );
+  }
 
   const parts = page.path.split("/").filter(Boolean);
   const crumbs: { name: string; path: string }[] = [{ name: "Home", path: "/" }];

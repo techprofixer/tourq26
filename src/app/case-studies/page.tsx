@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import Image from "next/image";
 import MarketingHeader from "@/components/MarketingHeader";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
-import { caseStudies } from "@/data/case-studies";
+import { readCaseStudies } from "@/lib/case-studies-content";
 import { getSiteUrl } from "@/lib/site-url";
 import { breadcrumbListJsonLd, webPageJsonLd } from "@/lib/seo";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
+import { CaseStudiesFilterGrid } from "./CaseStudiesFilterGrid";
 
 export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = await getSiteUrl();
@@ -27,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function CaseStudiesIndexPage() {
-  const siteUrl = await getSiteUrl();
+  const [siteUrl, caseStudies] = await Promise.all([getSiteUrl(), readCaseStudies()]);
   const breadcrumbLd = breadcrumbListJsonLd(siteUrl, [
     { name: "Home", path: "/" },
     { name: "Case studies", path: "/case-studies" },
@@ -84,61 +84,7 @@ export default async function CaseStudiesIndexPage() {
         <section className="band-light border-t border-hairline">
           <div className="mx-auto w-full max-w-[1280px] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-[80px]">
             <p className="mono-eyebrow text-muted-foreground">CASE LIBRARY</p>
-            <p className="display-md mt-4 max-w-2xl text-foreground">
-              {caseStudies.length} engagements you can read end-to-end.
-            </p>
-
-            <ul className="mt-10 grid gap-4 sm:grid-cols-2">
-              {caseStudies.map((study) => (
-                <li key={study.slug}>
-                  <article className="card-flat card-hover group flex h-full flex-col overflow-hidden p-0">
-                    <Link href={`/case-studies/${study.slug}`} className="flex h-full flex-col">
-                      <div className="relative aspect-[16/9] overflow-hidden border-b border-hairline">
-                        <Image
-                          src={study.coverImage}
-                          alt={study.coverAlt}
-                          fill
-                          className="object-cover transition duration-500 group-hover:scale-[1.02]"
-                          sizes="(max-width: 768px) 100vw, 50vw"
-                        />
-                      </div>
-                      <div className="flex flex-1 flex-col p-6 sm:p-7">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="mono-eyebrow text-muted-foreground">
-                            {study.industry.toUpperCase()}
-                          </p>
-                          <span className="mono-label text-muted-foreground">
-                            {study.metricLabel.toUpperCase()}
-                          </span>
-                        </div>
-                        <h2 className="display-md mt-5 text-foreground">{study.title}</h2>
-                        <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
-                          {study.description}
-                        </p>
-                        <div className="mt-5 flex flex-wrap gap-2">
-                          {study.services.map((s) => (
-                            <span
-                              key={s}
-                              className="mono-label rounded-[var(--radius-xs)] border border-hairline px-2 py-1 text-muted-foreground"
-                            >
-                              {s.toUpperCase()}
-                            </span>
-                          ))}
-                        </div>
-                        <div className="mt-6 flex items-center justify-between border-t border-hairline pt-4">
-                          <span className="stat-number text-[28px] leading-none text-foreground">
-                            {study.metric}
-                          </span>
-                          <span className="mono-button text-foreground transition-transform group-hover:translate-x-0.5">
-                            READ CASE STUDY →
-                          </span>
-                        </div>
-                      </div>
-                    </Link>
-                  </article>
-                </li>
-              ))}
-            </ul>
+            <CaseStudiesFilterGrid caseStudies={caseStudies} />
           </div>
         </section>
 
