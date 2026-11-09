@@ -1,6 +1,6 @@
 # Admin panel & Vercel KV / Redis
 
-## Layout metadata from content
+## Layout metadata from content  - 
 
 Root layout **metadata** (title, description, Open Graph, Twitter, keywords) is now driven by **Site & SEO** in the admin panel. Whatever you save under **Admin → Site & SEO** is used for:
 
