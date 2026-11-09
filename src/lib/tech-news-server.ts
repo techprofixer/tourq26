@@ -1,12 +1,11 @@
-import { countWords, readTimeFromWordCount, slugify } from "@/lib/blog-server";
+import { countWords, readTimeFromWordCount } from "@/lib/blog-server";
+import { slugify } from "@/lib/slug";
 import {
   TECH_NEWS_CATEGORIES,
   type TechNewsCategory,
   type TechNewsPost,
   type TechNewsStatus,
 } from "@/lib/tech-news-content";
-
-export { slugify };
 
 const STATUSES = new Set<TechNewsStatus>(["draft", "published"]);
 const CATEGORIES = new Set<TechNewsCategory>(TECH_NEWS_CATEGORIES);

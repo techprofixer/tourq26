@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { isAdmin } from "@/lib/auth";
 import { readBlogPosts } from "@/lib/content";
-import { BlogListClient } from "./BlogListClient";
+import { PostListClient } from "@/components/admin/PostListClient";
 import { AdminPageHeader } from "../AdminPageHeader";
 
 type SearchParams = Promise<{ status?: string }>;
@@ -34,7 +34,7 @@ export default async function AdminBlogPage({
           </Link>
         }
       />
-      <BlogListClient posts={posts} initialFilter={status} />
+      <PostListClient kind="blog" posts={posts} initialFilter={status} />
     </div>
   );
 }

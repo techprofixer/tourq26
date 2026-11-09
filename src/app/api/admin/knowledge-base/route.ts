@@ -7,7 +7,7 @@ import {
   MAX_CUSTOM_CONTENT_LENGTH,
 } from "@/lib/rag/custom-knowledge";
 import { logActivity } from "@/lib/activity-log";
-import { jsonError } from "@/lib/api-response";
+import { clientErrorMessage, jsonError } from "@/lib/api-response";
 import { MAX_UPLOAD_SIZE_BYTES } from "@/lib/constants";
 
 export const runtime = "nodejs";
@@ -61,6 +61,6 @@ export const POST = withAdmin(async (request: NextRequest) => {
     return NextResponse.json({ ok: true, sourceId, chunkCount });
   } catch (err) {
     console.error("Failed to add custom knowledge:", err);
-    return jsonError(500, err instanceof Error ? err.message : "Failed to embed content.");
+    return jsonError(500, clientErrorMessage(err, "Failed to embed content.", "knowledge-base"));
   }
 });

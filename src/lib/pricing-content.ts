@@ -1,4 +1,5 @@
 import { prisma, withDbTimeout } from "@/lib/db";
+import { slugify } from "@/lib/slug";
 
 export type PricingPlan = {
   id: string;
@@ -188,15 +189,6 @@ export async function readAllPricingPlans(): Promise<PricingPlan[]> {
   } catch {
     return DEFAULT_PRICING_PLANS;
   }
-}
-
-function slugify(input: string, fallback: string): string {
-  const slug = input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || fallback;
 }
 
 export async function writePricingPlans(items: PricingPlan[]): Promise<PricingPlan[]> {

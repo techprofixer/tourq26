@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAdmin } from "@/lib/with-admin";
-import { listMediaAssets, saveMediaFile } from "@/lib/media";
+import { listMediaAssets, saveMediaFile, validateMediaUpload } from "@/lib/media";
 import { logActivity } from "@/lib/activity-log";
 import { jsonError } from "@/lib/api-response";
 import { MAX_UPLOAD_SIZE_BYTES } from "@/lib/constants";
@@ -19,6 +19,8 @@ export const POST = withAdmin(async (request: NextRequest) => {
   if (file.size > MAX_UPLOAD_SIZE_BYTES) {
     return jsonError(400, "File too large (max 15MB)");
   }
+  const invalid = validateMediaUpload(file);
+  if (invalid) return jsonError(400, invalid);
 
   const asset = await saveMediaFile(file);
   void logActivity({ entityType: "media", entityId: asset.id, action: "created", summary: `Uploaded "${asset.filename}"` });

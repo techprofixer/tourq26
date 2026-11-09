@@ -1,6 +1,6 @@
 import type { EntityKind, RelationType } from "@prisma/client";
 import { prisma, withDbTimeout } from "@/lib/db";
-import { slugify } from "@/lib/cms/pages";
+import { slugify } from "@/lib/slug";
 
 export const ENTITY_KINDS = [
   "SERVICE",

@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { readBlogPosts, readSiteContent } from "@/lib/content";
-import { BlogPostForm } from "../../BlogPostForm";
+import { PostEditorForm } from "@/components/admin/PostEditorForm";
 import { AdminPageHeader } from "../../../AdminPageHeader";
 
 export default async function EditBlogPostPage({
@@ -29,7 +29,7 @@ export default async function EditBlogPostPage({
         description="Save changes anytime — drafts stay private, publishes go live immediately."
       />
       <div className="mt-6">
-        <BlogPostForm key={post.slug} post={post} siteUrl={site.siteUrl} siteName={site.siteName} />
+        <PostEditorForm kind="blog" key={post.slug} post={post} siteUrl={site.siteUrl} siteName={site.siteName} />
       </div>
     </div>
   );

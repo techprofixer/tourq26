@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { slugify } from "@/lib/slug";
 import {
   BLOCK_TYPE_OPTIONS,
   createDefaultBlock,
@@ -13,6 +14,7 @@ import type { LinkSuggestion } from "@/lib/cms/link-suggestions";
 import {
   extractTextFromCmsBlocks,
   generateSeoFromContent,
+  stripHtmlToText,
 } from "@/lib/seo-generate";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
@@ -59,25 +61,12 @@ const PAGE_TYPES = [
   "CUSTOM",
 ] as const;
 
-function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/['"]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-}
-
 function blockSummary(block: CmsBlock): string {
   switch (block.type) {
     case "hero":
       return block.heading || "Untitled hero";
     case "contentSection":
-      return block.heading || stripHtml(block.bodyHtml).slice(0, 70) || "Untitled section";
+      return block.heading || stripHtmlToText(block.bodyHtml).slice(0, 70) || "Untitled section";
     case "cta":
       return block.heading || "Untitled CTA";
     case "faq":
@@ -113,7 +102,7 @@ export function PageEditor({
   const [slug, setSlug] = useState(initial?.slug ?? "");
   const [slugTouched, setSlugTouched] = useState(Boolean(initial?.slug));
   const [type, setType] = useState(initial?.type ?? "SERVICE");
-  const [status, setStatus] = useState(initial?.status ?? "DRAFT");
+  const status = initial?.status ?? "DRAFT";
   const [path, setPath] = useState(initial?.path ?? "");
   const [excerpt, setExcerpt] = useState(initial?.excerpt ?? "");
   const [blocks, setBlocks] = useState<CmsBlock[]>(initial?.blocks ?? []);

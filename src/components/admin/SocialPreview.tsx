@@ -1,5 +1,6 @@
 "use client";
 
+import { clampText } from "@/lib/seo-generate";
 type Props = {
   siteUrl: string;
   /** Full path including leading slash, e.g. `/tech-news/my-story`. Preferred over `slug`. */
@@ -13,10 +14,6 @@ type Props = {
   /** Eyebrow label on the gradient fallback card, e.g. "BLOG" or "TECH NEWS". */
   kicker?: string;
 };
-
-function clamp(s: string, n: number) {
-  return s.length > n ? `${s.slice(0, n - 1).trim()}…` : s;
-}
 
 function hostname(u: string) {
   try {
@@ -62,7 +59,7 @@ export function SocialPreview({
               <div className="relative z-10 flex h-full w-full flex-col justify-end p-5 text-white">
                 <p className="mono-eyebrow text-white/70">{siteName.toUpperCase()} · {kicker}</p>
                 <p className="mt-2 font-display text-[20px] font-medium leading-tight">
-                  {clamp(title || "Your post title", 80)}
+                  {clampText(title || "Your post title", 80)}
                 </p>
               </div>
             </div>
@@ -73,10 +70,10 @@ export function SocialPreview({
             {hostname(base)}
           </p>
           <p className="mt-0.5 truncate text-[14px] font-medium text-foreground">
-            {clamp(title || "Your post title", 70)}
+            {clampText(title || "Your post title", 70)}
           </p>
           <p className="mt-0.5 line-clamp-2 text-[12.5px] text-muted-foreground">
-            {clamp(description || "Your meta description appears here.", 160)}
+            {clampText(description || "Your meta description appears here.", 160)}
           </p>
           <p className="mt-1 truncate text-[11px] text-muted-foreground/80">{url}</p>
         </div>

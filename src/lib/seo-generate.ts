@@ -127,3 +127,8 @@ export function generateSeoFromContent(input: {
 
   return { metaTitle, metaDescription };
 }
+
+/** Hard character clamp with an ellipsis — used by SERP/social previews to mimic platform truncation. */
+export function clampText(s: string, n: number): string {
+  return s.length > n ? `${s.slice(0, n - 1).trim()}…` : s;
+}

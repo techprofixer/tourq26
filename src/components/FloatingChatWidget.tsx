@@ -101,6 +101,8 @@ function parseInline(text: string, keyPrefix: string): ReactNode[] {
     if (match.index > lastIndex) nodes.push(...linkifyPlainText(text.slice(lastIndex, match.index), `${keyPrefix}-${i}`));
     if (match[2] !== undefined) {
       nodes.push(
+        // Chat replies may embed arbitrary remote images; next/image would require allow-listing every host.
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           key={`${keyPrefix}-${i++}`}
           src={match[2]}

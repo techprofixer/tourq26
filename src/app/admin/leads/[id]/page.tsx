@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { readAuditLeadById } from "@/lib/audit-leads-content";
+import { formatDateTime } from "@/lib/date-format";
 import {
   labelFor,
   BUSINESS_TYPE_OPTIONS,
@@ -12,14 +13,6 @@ import {
 } from "@/lib/business-systems/options";
 import { AdminPageHeader } from "../../AdminPageHeader";
 import { LeadStatusControl } from "./LeadStatusControl";
-
-function formatDate(iso: string) {
-  try {
-    return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-  } catch {
-    return iso;
-  }
-}
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -47,7 +40,7 @@ export default async function AdminLeadDetailPage({ params }: { params: Promise<
           { label: lead.name },
         ]}
         title={lead.name}
-        description={`${lead.companyName} · Submitted ${formatDate(lead.createdAt)}`}
+        description={`${lead.companyName} · Submitted ${formatDateTime(lead.createdAt)}`}
         actions={<LeadStatusControl leadId={lead.id} currentStatus={lead.leadStatus} />}
       />
 

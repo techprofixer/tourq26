@@ -11,30 +11,42 @@ import { getSiteUrl } from "@/lib/site-url";
 import { readSiteContent } from "@/lib/content";
 import { getRelatedContentGroups } from "@/lib/related-links";
 
-export async function cmsPageMetadata(path: string): Promise<Metadata> {
-  const siteUrl = await getSiteUrl();
+type CmsPage = NonNullable<Awaited<ReturnType<typeof getPublishedPageByPath>>>;
+
+/** Published CMS page for `path`, or null when missing or the DB is unavailable. */
+export async function findPublishedPage(path: string): Promise<CmsPage | null> {
   try {
-    const page = await getPublishedPageByPath(path);
-    if (page) return buildPageMetadata(page, siteUrl);
+    return await getPublishedPageByPath(path);
   } catch {
-    /* DB down */
+    return null;
   }
-  return { title: "Not found", robots: { index: false, follow: false } };
 }
 
-export async function CmsEntityPage({ path }: { path: string }) {
-  let page = null;
-  try {
-    page = await getPublishedPageByPath(path);
-  } catch {
-    notFound();
-  }
-  if (!page) notFound();
+/** Metadata for a CMS page; `fallback` is used when no published page exists. */
+export async function cmsPageMetadata(
+  path: string,
+  fallback: Metadata = { title: "Not found", robots: { index: false, follow: false } },
+): Promise<Metadata> {
+  const page = await findPublishedPage(path);
+  if (!page) return fallback;
+  return buildPageMetadata(page, await getSiteUrl());
+}
 
-  const [siteUrl, site] = await Promise.all([getSiteUrl(), readSiteContent()]);
+/** Renders a published CMS page with header, JSON-LD and footer. */
+export async function CmsPageView({
+  page,
+  showRelated = true,
+}: {
+  page: CmsPage;
+  showRelated?: boolean;
+}) {
+  const [siteUrl, site, relatedGroups] = await Promise.all([
+    getSiteUrl(),
+    readSiteContent(),
+    showRelated ? getRelatedContentGroups({ path: page.path }) : Promise.resolve(null),
+  ]);
   const schemas = buildPageJsonLd(page, siteUrl, site.siteName);
   const blocks = getPageBlocks(page);
-  const relatedGroups = await getRelatedContentGroups({ path: page.path });
 
   return (
     <div className="min-h-screen bg-background">
@@ -44,9 +56,16 @@ export async function CmsEntityPage({ path }: { path: string }) {
       <MarketingHeader />
       <main>
         <BlockRenderer blocks={blocks} />
-        <RelatedContentSection groups={relatedGroups} />
+        {relatedGroups ? <RelatedContentSection groups={relatedGroups} /> : null}
       </main>
       <Footer />
     </div>
   );
+}
+
+/** CMS-only route: 404s when the page isn't published. */
+export async function CmsEntityPage({ path }: { path: string }) {
+  const page = await findPublishedPage(path);
+  if (!page) notFound();
+  return <CmsPageView page={page} />;
 }

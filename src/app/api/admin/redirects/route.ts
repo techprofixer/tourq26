@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAdmin } from "@/lib/with-admin";
-import { listRedirects, createRedirect } from "@/lib/redirects";
+import { listRedirects, createRedirect, isSafeRedirectPath } from "@/lib/redirects";
 import { logActivity } from "@/lib/activity-log";
 
 export const GET = withAdmin(async () => {
@@ -17,8 +17,8 @@ export const POST = withAdmin(async (request: NextRequest) => {
   };
   const fromPath = (body.fromPath || "").trim();
   const toPath = (body.toPath || "").trim();
-  if (!fromPath.startsWith("/") || !toPath.startsWith("/")) {
-    return NextResponse.json({ error: "Paths must start with /" }, { status: 400 });
+  if (!isSafeRedirectPath(fromPath) || !isSafeRedirectPath(toPath)) {
+    return NextResponse.json({ error: "Paths must be site-relative and start with a single /" }, { status: 400 });
   }
   if (fromPath === toPath) {
     return NextResponse.json({ error: "From and to paths must differ" }, { status: 400 });

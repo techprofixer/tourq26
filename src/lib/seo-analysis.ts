@@ -1,3 +1,5 @@
+import { countWords } from "@/lib/blog-server";
+
 export type SeoCheckStatus = "pass" | "warn" | "fail";
 
 export type SeoCheckCategory = "keyword" | "content" | "media" | "links" | "structure";
@@ -36,12 +38,6 @@ function countOccurrences(haystack: string, needle: string): number {
   if (!term) return 0;
   const re = new RegExp(escapeRegExp(term), "gi");
   return (haystack.match(re) ?? []).length;
-}
-
-function wordCount(text: string): number {
-  const trimmed = text.trim();
-  if (!trimmed) return 0;
-  return trimmed.split(/\s+/).length;
 }
 
 function check(
@@ -216,7 +212,7 @@ export function analyzePageSeo(input: {
   const focusKeyword = input.focusKeyword.trim();
   const metaTitle = (input.metaTitle || input.title).trim();
   const metaDescription = input.metaDescription.trim();
-  const bodyWords = wordCount(input.bodyText);
+  const bodyWords = countWords(input.bodyText);
   const secondaryKeywords = input.secondaryKeywords.map((k) => k.trim()).filter(Boolean);
   const imageAudit = auditImages(input.rawHtml);
   const linkAudit = auditLinks(input.rawHtml, input.siteUrl);

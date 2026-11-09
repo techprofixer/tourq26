@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import sanitizeHtml from "sanitize-html";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { jsonError } from "@/lib/api-response";
-import { rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { auditLeadSchema } from "@/lib/business-systems/schema";
 import { createAuditLead, findRecentDuplicateAuditLead } from "@/lib/audit-leads-content";
 
@@ -13,17 +13,12 @@ function stripTags(value: string): string {
   return sanitizeHtml(value, { allowedTags: [], allowedAttributes: {} }).trim();
 }
 
-function clientIp(request: NextRequest): string {
-  const forwarded = request.headers.get("x-forwarded-for");
-  return forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
-}
-
 export async function POST(request: NextRequest) {
   if (!(await isFeatureEnabled("business_systems_audit"))) {
     return jsonError(503, "The audit form is temporarily disabled.");
   }
 
-  const ip = clientIp(request);
+  const ip = clientIp(request.headers);
   const { allowed, retryAfterSeconds } = rateLimit(`audit-lead:${ip}`, RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS);
   if (!allowed) {
     return jsonError(429, "Too many submissions. Please try again later.", {

@@ -30,3 +30,15 @@ export function rateLimit(key: string, limit: number, windowMs: number): { allow
   bucket.count += 1;
   return { allowed: true, retryAfterSeconds: 0 };
 }
+
+/**
+ * Best-effort client IP for rate-limit keys. Prefers `x-real-ip` (set by Vercel and most
+ * reverse proxies, not client-controllable there) over the first `x-forwarded-for` hop.
+ */
+export function clientIp(headers: Headers): string {
+  return (
+    headers.get("x-real-ip")?.trim() ||
+    headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown"
+  );
+}

@@ -8,6 +8,7 @@ import type { SiteContent } from "@/lib/content";
 import { BrandForm } from "./BrandForm";
 import { SiteForm } from "./SiteForm";
 import { SerpPreview } from "@/components/admin/SerpPreview";
+import { clampText } from "@/lib/seo-generate";
 
 type Tab = "brand" | "seo";
 
@@ -56,10 +57,6 @@ function hostname(u: string) {
   } catch {
     return u;
   }
-}
-
-function clamp(s: string, n: number) {
-  return s.length > n ? `${s.slice(0, n - 1).trim()}…` : s;
 }
 
 /** Live "how it looks" panel — mirrors the active tab's in-progress (unsaved) field values. */
@@ -111,7 +108,7 @@ function PreviewPanel({
               )}
             </span>
             <span className="truncate text-[12px] text-muted-foreground">
-              {clamp(site.siteName || "Your site", 28)}
+              {clampText(site.siteName || "Your site", 28)}
             </span>
           </div>
           <div className="space-y-4 bg-background p-5">
@@ -173,10 +170,10 @@ function PreviewPanel({
           <div className="border-t border-border bg-muted/40 px-4 py-3">
             <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{hostname(site.siteUrl)}</p>
             <p className="mt-0.5 truncate text-[14px] font-medium text-foreground">
-              {clamp(site.ogTitle || site.defaultTitle || "Your OG title", 70)}
+              {clampText(site.ogTitle || site.defaultTitle || "Your OG title", 70)}
             </p>
             <p className="mt-0.5 line-clamp-2 text-[12.5px] text-muted-foreground">
-              {clamp(site.ogDescription || site.defaultDescription || "Your OG description appears here.", 160)}
+              {clampText(site.ogDescription || site.defaultDescription || "Your OG description appears here.", 160)}
             </p>
           </div>
         </div>

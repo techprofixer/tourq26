@@ -1,14 +1,7 @@
 import Link from "next/link";
 import type { AuditLead } from "@/lib/audit-leads-content";
 import { labelFor, BUDGET_OPTIONS, TIMELINE_OPTIONS } from "@/lib/business-systems/options";
-
-function formatDate(iso: string) {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
-  } catch {
-    return iso;
-  }
-}
+import { formatMediumDate } from "@/lib/date-format";
 
 const CATEGORY_COLOR: Record<string, string> = {
   HOT: "var(--app-destructive)",
@@ -56,7 +49,7 @@ export function AuditLeadTable({ leads }: { leads: AuditLead[] }) {
               <td className="px-4 py-3 text-foreground/90">{labelFor(TIMELINE_OPTIONS, lead.timeline)}</td>
               <td className="px-4 py-3 text-foreground/90">{lead.source || "—"}</td>
               <td className="px-4 py-3 whitespace-nowrap font-mono text-[12px] text-muted-foreground">
-                {formatDate(lead.createdAt)}
+                {formatMediumDate(lead.createdAt)}
               </td>
             </tr>
           ))}

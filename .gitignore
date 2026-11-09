@@ -44,3 +44,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# SQLite files (datasource is MongoDB; never commit local DBs)
+*.db
+.claude/settings.local.json

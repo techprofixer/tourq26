@@ -27,6 +27,11 @@ function toDto(row: {
   };
 }
 
+/** Same-origin path only: must start with a single "/" (rejects "//host", "/\\host", and absolute URLs). */
+export function isSafeRedirectPath(path: string): boolean {
+  return /^\/(?![\/\\])/.test(path) && !/[\s\\]/.test(path);
+}
+
 export async function listRedirects(): Promise<RedirectDto[]> {
   const rows = await prisma.redirect.findMany({ orderBy: { createdAt: "desc" } });
   return rows.map(toDto);
@@ -61,7 +66,7 @@ export async function deleteRedirect(id: string): Promise<void> {
   await prisma.redirect.delete({ where: { id } }).catch(() => {});
 }
 
-/** Used by middleware — must fail fast and fail open (return null) on any DB hiccup. */
+/** Used by the proxy (src/proxy.ts) — must fail fast and fail open (return null) on any DB hiccup. */
 export async function findActiveRedirect(
   pathname: string,
 ): Promise<{ toPath: string; permanent: boolean } | null> {

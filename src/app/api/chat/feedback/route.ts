@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { addChatFeedback } from "@/lib/content";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { jsonError } from "@/lib/api-response";
-import { rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { MAX_CHAT_MESSAGE_LENGTH, MAX_CHAT_REPLY_LENGTH } from "@/lib/constants";
 
 const RATE_LIMIT_MAX_REQUESTS = 30;
@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     return jsonError(503, "Chat assistant is unavailable.");
   }
 
-  const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const ip = clientIp(request.headers);
   const { allowed, retryAfterSeconds } = rateLimit(`chat-feedback:${ip}`, RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_MS);
   if (!allowed) {
     return jsonError(429, `Too many requests — please wait ${retryAfterSeconds}s and try again.`, {

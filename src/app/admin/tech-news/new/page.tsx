@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { readSiteContent } from "@/lib/content";
-import { TechNewsPostForm } from "../TechNewsPostForm";
+import { PostEditorForm } from "@/components/admin/PostEditorForm";
 import { AdminPageHeader } from "../../AdminPageHeader";
 
 export default async function NewTechNewsPostPage() {
@@ -22,7 +22,7 @@ export default async function NewTechNewsPostPage() {
         description="Save as a draft to iterate, then publish when you're ready. Slug auto-generates from the title."
       />
       <div className="mt-6">
-        <TechNewsPostForm siteUrl={site.siteUrl} siteName={site.siteName} />
+        <PostEditorForm kind="tech-news" siteUrl={site.siteUrl} siteName={site.siteName} />
       </div>
     </div>
   );

@@ -1,4 +1,7 @@
+"use client";
+
 import Script from "next/script";
+import { usePathname } from "next/navigation";
 
 const PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 
@@ -6,9 +9,13 @@ const PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
  * Meta Pixel base code. Renders nothing when NEXT_PUBLIC_META_PIXEL_ID isn't set — inert until
  * a real Pixel ID is added to env, no other code change needed. Fires PageView automatically;
  * ViewContent/Lead/Schedule are fired explicitly from src/lib/meta-pixel.ts call sites.
+ *
+ * Never loads on /admin: admins aren't marketing traffic, and admin pages run a strict nonce CSP
+ * (src/lib/csp.ts) that would block this inline snippet anyway.
  */
 export default function MetaPixel() {
-  if (!PIXEL_ID) return null;
+  const pathname = usePathname();
+  if (!PIXEL_ID || pathname?.startsWith("/admin")) return null;
 
   return (
     <>

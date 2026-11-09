@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import type { PageType, WorkflowStatus } from "@prisma/client";
 import { withAdmin } from "@/lib/with-admin";
+import { clientErrorMessage, jsonError } from "@/lib/api-response";
 import { parseBlocks } from "@/lib/cms/blocks";
 import { createPage, listPages } from "@/lib/cms/pages";
 import { logActivity } from "@/lib/activity-log";
@@ -43,7 +44,6 @@ export const POST = withAdmin(async (request: NextRequest) => {
     revalidatePath("/admin/cms/pages");
     return NextResponse.json(page, { status: 201 });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to create page";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return jsonError(400, clientErrorMessage(e, "Failed to create page", "cms-pages"));
   }
 });

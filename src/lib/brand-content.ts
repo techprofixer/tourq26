@@ -16,6 +16,23 @@ export function findBrandFont(key: string | null | undefined) {
   return BRAND_FONTS.find((f) => f.key === key) ?? null;
 }
 
+/** Hex (#rgb, #rrggbb, #rrggbbaa) or simple rgb()/hsl() — anything else is rejected because it is injected into a <style> tag. */
+export function isSafeCssColor(value: string): boolean {
+  return /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value) || /^(?:rgb|hsl)a?\([\d\s.,%\/]+\)$/i.test(value);
+}
+
+export const BRAND_FIELDS = [
+  "logoUrl",
+  "logoDarkUrl",
+  "faviconUrl",
+  "colorPrimary",
+  "colorAccent",
+  "fontHeading",
+  "fontBody",
+  "voiceDescription",
+  "voiceGuidelines",
+] as const;
+
 export type BrandContent = {
   logoUrl: string;
   logoDarkUrl: string;

@@ -2,17 +2,7 @@ import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { readChatFeedback } from "@/lib/content";
 import { AdminPageHeader } from "../AdminPageHeader";
-
-function formatDate(iso: string) {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  } catch {
-    return iso;
-  }
-}
+import { formatDateTime } from "@/lib/date-format";
 
 export default async function AdminChatFeedbackPage() {
   const ok = await isAdmin();
@@ -62,7 +52,7 @@ export default async function AdminChatFeedbackPage() {
                   className="shrink-0 font-mono text-xs uppercase tracking-wide text-muted-foreground"
                   dateTime={f.createdAt}
                 >
-                  {formatDate(f.createdAt)}
+                  {formatDateTime(f.createdAt)}
                 </time>
               </li>
             ))}

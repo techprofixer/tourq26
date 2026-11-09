@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withAdmin } from "@/lib/with-admin";
-import { updateRedirect, deleteRedirect } from "@/lib/redirects";
+import { updateRedirect, deleteRedirect, isSafeRedirectPath } from "@/lib/redirects";
 import { logActivity } from "@/lib/activity-log";
 
 export const PATCH = withAdmin(async (request: NextRequest, { params }: { params: Promise<{ id: string }> }) => {
@@ -11,8 +11,11 @@ export const PATCH = withAdmin(async (request: NextRequest, { params }: { params
     isActive?: boolean;
     note?: string;
   };
+  if (body.toPath !== undefined && !isSafeRedirectPath(body.toPath.trim())) {
+    return NextResponse.json({ error: "Path must be site-relative and start with a single /" }, { status: 400 });
+  }
   const redirect = await updateRedirect(id, {
-    ...(body.toPath ? { toPath: body.toPath } : {}),
+    ...(body.toPath ? { toPath: body.toPath.trim() } : {}),
     ...(body.type === "TEMPORARY_302" || body.type === "PERMANENT_301" ? { type: body.type } : {}),
     ...(typeof body.isActive === "boolean" ? { isActive: body.isActive } : {}),
     ...(typeof body.note === "string" ? { note: body.note } : {}),

@@ -7,6 +7,7 @@ import { publishedTechNewsPosts, readTechNewsPosts } from "@/lib/tech-news-conte
 import { getSiteUrl } from "@/lib/site-url";
 import { readSiteContent } from "@/lib/content";
 import { breadcrumbListJsonLd, techNewsCollectionJsonLd, webPageJsonLd } from "@/lib/seo";
+import { formatLongDate } from "@/lib/date-format";
 
 const PAGE_PATH = "/tech-news";
 export const revalidate = 3600;
@@ -46,14 +47,6 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     robots: { index: true, follow: true },
   };
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
 }
 
 export default async function TechNewsPage() {
@@ -169,7 +162,7 @@ export default async function TechNewsPage() {
                     {featured.category.toUpperCase()}
                   </span>
                   <time dateTime={featured.date} className="mono-label text-muted-foreground">
-                    {formatDate(featured.date).toUpperCase()}
+                    {formatLongDate(featured.date).toUpperCase()}
                   </time>
                   <span className="mono-label text-muted-foreground/60" aria-hidden>
                     ·
@@ -229,7 +222,7 @@ export default async function TechNewsPage() {
                         dateTime={item.date}
                         className="mono-label text-muted-foreground"
                       >
-                        {formatDate(item.date).toUpperCase()}
+                        {formatLongDate(item.date).toUpperCase()}
                       </time>
                     </div>
                     <h3 className="display-md mt-5 text-foreground">{item.title}</h3>

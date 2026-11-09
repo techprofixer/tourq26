@@ -4,8 +4,7 @@
  * Site-wide UTM attribution. Captured once per browser session (first touch wins) from the
  * URL query string and persisted in sessionStorage, so any lead form on the site can attach
  * it to a submission regardless of which page the visitor landed on or navigated through
- * before converting. Mirrors the pattern in `@/lib/business-systems/utm`, which stays scoped
- * to that funnel's own storage key.
+ * before converting. Used by every lead form (contact, business-systems audit).
  */
 
 const STORAGE_KEY = "torq_utm";

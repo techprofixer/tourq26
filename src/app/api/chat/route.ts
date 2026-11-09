@@ -6,7 +6,7 @@ import { retrieveRelevantChunks, type RetrievedChunk } from "@/lib/rag/retrieve"
 import { jsonError } from "@/lib/api-response";
 import { MAX_CHAT_HISTORY_MESSAGES, MAX_CHAT_MESSAGE_LENGTH } from "@/lib/constants";
 import { containsProfanity } from "@/lib/moderation";
-import { rateLimit } from "@/lib/rate-limit";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { logChatQuery } from "@/lib/content";
 
 export const runtime = "nodejs";
@@ -117,7 +117,7 @@ export async function POST(req: Request) {
     return jsonError(503, "Chat assistant is unavailable.");
   }
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  const ip = clientIp(req.headers);
   const { allowed, retryAfterSeconds } = rateLimit(`chat:${ip}`, RATE_LIMIT_MAX_REQUESTS, RATE_LIMIT_WINDOW_MS);
   if (!allowed) {
     return jsonError(429, `Too many messages — please wait ${retryAfterSeconds}s and try again.`, {
@@ -196,10 +196,10 @@ export async function POST(req: Request) {
           ];
 
           const res = await fetchGeminiWithRetry(
-            `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:streamGenerateContent?alt=sse&key=${apiKey}`,
+            `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:streamGenerateContent?alt=sse`,
             {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
+              headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey ?? "" },
               body: JSON.stringify({
                 system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
                 contents,

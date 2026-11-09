@@ -4,7 +4,6 @@ export const FEATURE_FLAG_KEYS = [
   "marketing_blog",
   "floating_whatsapp",
   "floating_chat_assistant",
-  "dev_tools_code_playground",
   "business_systems_audit",
   "torqos_landing",
 ] as const;
@@ -62,15 +61,6 @@ export const FEATURE_FLAG_DEFINITIONS: readonly FeatureFlagDefinition[] = [
     category: "Marketing",
     defaultEnabled: false,
     envOverride: "FF_FLOATING_CHAT_ASSISTANT",
-  },
-  {
-    key: "dev_tools_code_playground",
-    label: "API: Playground runs on /api/run",
-    description:
-      "When off, POST /api/run with source=playground returns 403 (legacy clients). Non-playground runs are unchanged. The public playground lives on the standalone Torq DevTools deployment.",
-    category: "Site",
-    defaultEnabled: true,
-    envOverride: "FF_DEV_TOOLS_CODE_PLAYGROUND",
   },
   {
     key: "business_systems_audit",

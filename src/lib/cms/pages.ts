@@ -7,19 +7,11 @@ import type {
 } from "@prisma/client";
 import { prisma, withDbTimeout } from "@/lib/db";
 import { parseBlocks, type CmsBlock } from "@/lib/cms/blocks";
+import { slugify } from "@/lib/slug";
 
 export type PageWithSeo = Prisma.PageGetPayload<{
   include: { seo: true; brief: true; entityLinks: true };
 }>;
-
-export function slugify(input: string): string {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-}
 
 export function pathFor(type: PageType, slug: string): string {
   const s = slugify(slug);

@@ -9,7 +9,7 @@ import { TagInput } from "@/components/admin/TagInput";
 import { AiGenerateButton } from "@/components/admin/AiGenerateButton";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { stripHtmlToText } from "@/lib/seo-generate";
-import { slugify } from "@/lib/blog-server";
+import { slugify } from "@/lib/slug";
 import { ADMIN_INPUT_CLASS as inputClass } from "@/components/admin/form-styles";
 
 function Field({

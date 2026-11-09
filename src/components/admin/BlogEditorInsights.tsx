@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { stripHtmlToText } from "@/lib/seo-generate";
 
 type Props = {
   title: string;
@@ -10,15 +11,6 @@ type Props = {
   slug?: string;
   hasCoverImage?: boolean;
 };
-
-function stripHtml(html: string): string {
-  if (typeof document === "undefined") {
-    return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  }
-  const d = document.createElement("div");
-  d.innerHTML = html;
-  return (d.textContent || d.innerText || "").replace(/\s+/g, " ").trim();
-}
 
 function countMatches(html: string, re: RegExp): number {
   const m = html.match(re);
@@ -43,7 +35,7 @@ export function BlogEditorInsights({
   hasCoverImage = false,
 }: Props) {
   const metrics = useMemo(() => {
-    const plain = stripHtml(bodyHtml);
+    const plain = stripHtmlToText(bodyHtml);
     const lowerPlain = plain.toLowerCase();
     const lowerTitle = title.toLowerCase();
     const lowerDesc = description.toLowerCase();

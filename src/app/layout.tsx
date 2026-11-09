@@ -7,7 +7,8 @@ import FloatingChatWidget from "@/components/FloatingChatWidget";
 import MetaPixel from "@/components/MetaPixel";
 import UtmCapture from "@/components/UtmCapture";
 import { isFeatureEnabled } from "@/lib/feature-flags";
-import { readBrandContent, findBrandFont } from "@/lib/brand-content";
+import { readBrandContent, findBrandFont, isSafeCssColor } from "@/lib/brand-content";
+import JsonLd from "@/components/JsonLd";
 
 // Display sans — closest open-source match to the brand's custom "The Future"
 // face (DESIGN.md → typography). Inter at 400/500 with negative tracking is
@@ -108,10 +109,10 @@ export default async function RootLayout({
   const siteUrl = site.siteUrl.replace(/\/$/, "");
 
   const cssVarOverrides: string[] = [];
-  if (brand.colorPrimary) {
+  if (brand.colorPrimary && isSafeCssColor(brand.colorPrimary)) {
     cssVarOverrides.push(`--app-primary:${brand.colorPrimary}`, `--app-primary-hover:${brand.colorPrimary}`);
   }
-  if (brand.colorAccent) {
+  if (brand.colorAccent && isSafeCssColor(brand.colorAccent)) {
     cssVarOverrides.push(`--brand-mint:${brand.colorAccent}`, `--app-accent:${brand.colorAccent}`);
   }
   const headingFont = findBrandFont(brand.fontHeading);
@@ -164,14 +165,8 @@ export default async function RootLayout({
         </head>
       ) : null}
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
-        />
+        <JsonLd data={organizationJsonLd} />
+        <JsonLd data={websiteJsonLd} />
         <MetaPixel />
         <UtmCapture />
         {children}

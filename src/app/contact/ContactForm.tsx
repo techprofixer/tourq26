@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import { MAX_CONTACT_MESSAGE_LENGTH } from "@/lib/constants";
 import { readStoredUtmParams } from "@/lib/utm";
 
-type FormData = { name: string; email: string; company: string; message: string };
+type FormData = { name: string; email: string; company: string; message: string; website: string };
 type FieldErrors = Partial<Record<"name" | "email" | "message", string>>;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -26,7 +26,7 @@ export default function ContactForm() {
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [errors, setErrors] = useState<FieldErrors>({});
-  const [formData, setFormData] = useState<FormData>({ name: "", email: "", company: "", message: "" });
+  const [formData, setFormData] = useState<FormData>({ name: "", email: "", company: "", message: "", website: "" });
 
   const setField = (key: keyof FormData) => (value: string) => {
     setFormData((p) => ({ ...p, [key]: value }));
@@ -56,6 +56,7 @@ export default function ContactForm() {
           email: formData.email,
           company: formData.company || undefined,
           message: formData.message,
+          website: formData.website,
           utmSource: utm?.utmSource,
           utmMedium: utm?.utmMedium,
           utmCampaign: utm?.utmCampaign,
@@ -75,7 +76,7 @@ export default function ContactForm() {
         return;
       }
       setStatus("sent");
-      setFormData({ name: "", email: "", company: "", message: "" });
+      setFormData({ name: "", email: "", company: "", message: "", website: "" });
       setErrors({});
     } catch {
       setStatus("error");
@@ -125,7 +126,20 @@ export default function ContactForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
+    <form onSubmit={handleSubmit} className="space-y-5 relative" noValidate>
+      {/* Honeypot — off-screen rather than display:none so bots still fill it. */}
+      <div aria-hidden className="absolute -left-[9999px] top-0 h-0 w-0 overflow-hidden">
+        <label htmlFor="website">Website</label>
+        <input
+          id="website"
+          name="website"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={formData.website}
+          onChange={(e) => setField("website")(e.target.value)}
+        />
+      </div>
       <div className="grid gap-5 sm:grid-cols-2">
         <Field
           id="name"

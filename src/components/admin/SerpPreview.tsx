@@ -1,5 +1,6 @@
 "use client";
 
+import { clampText } from "@/lib/seo-generate";
 type Props = {
   siteUrl: string;
   /** Full path including leading slash, e.g. `/blog/my-post` or `/services/mvp`. Empty = homepage. */
@@ -9,10 +10,6 @@ type Props = {
   title: string;
   description: string;
 };
-
-function clamp(s: string, n: number) {
-  return s.length > n ? `${s.slice(0, n - 1).trim()}…` : s;
-}
 
 function hostname(u: string) {
   try {
@@ -67,10 +64,10 @@ export function SerpPreview({ siteUrl, path, slug, title, description }: Props) 
           rel="noopener noreferrer"
           className="mt-2 block text-[18px] leading-tight text-[color:#1a0dab] hover:underline"
         >
-          {clamp(title || "Your page title — Site name", 70)}
+          {clampText(title || "Your page title — Site name", 70)}
         </a>
         <p className="mt-1 text-[13px] leading-snug text-muted-foreground">
-          {clamp(
+          {clampText(
             description || "Your meta description appears here. Aim for 120–160 characters.",
             160,
           )}

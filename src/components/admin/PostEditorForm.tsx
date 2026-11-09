@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { BlogPost, BlogStatus } from "@/lib/content";
+import type { BlogPost } from "@/lib/content";
+import {
+  TECH_NEWS_CATEGORIES,
+  type TechNewsCategory,
+  type TechNewsPost,
+} from "@/lib/tech-news-content";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { BlogEditorInsights } from "@/components/admin/BlogEditorInsights";
 import { BlogPostPreview } from "@/components/admin/BlogPostPreview";
@@ -13,49 +18,70 @@ import { TagInput } from "@/components/admin/TagInput";
 import { AiGenerateButton } from "@/components/admin/AiGenerateButton";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { generateSeoFromContent, stripHtmlToText } from "@/lib/seo-generate";
+import { countWords, readTimeFromWordCount } from "@/lib/blog-server";
+import { slugify } from "@/lib/slug";
 
-type Props = {
-  post?: BlogPost;
-  siteUrl: string;
-  siteName: string;
-};
+type PostStatus = "draft" | "published";
+
+/**
+ * Editor for article-style content (blog posts and tech-news stories). Everything that differs
+ * between kinds lives in `POST_KINDS`; kind-specific fields (blog tags, tech-news dek + category)
+ * are toggled by `kind`.
+ */
+export type PostEditorProps =
+  | { kind: "blog"; post?: BlogPost; siteUrl: string; siteName: string }
+  | { kind: "tech-news"; post?: TechNewsPost; siteUrl: string; siteName: string };
+
+type DraftFields = Partial<BlogPost & TechNewsPost>;
+
+const POST_KINDS = {
+  blog: {
+    publicBase: "/blog",
+    adminBase: "/admin/blog",
+    apiBase: "/api/admin/content/blog",
+    backLabel: "← BLOG",
+    newLabel: "New post",
+    kicker: "BLOG",
+    titlePlaceholder: "Write a title that names the outcome…",
+    focusKeywordPlaceholder: "e.g. mvp vs full product",
+    seoHint: "Live Google and social previews. Generate meta from the post body anytime.",
+    authorHint: "USED IN ARTICLE SCHEMA + AUTHOR BYLINE",
+  },
+  "tech-news": {
+    publicBase: "/tech-news",
+    adminBase: "/admin/tech-news",
+    apiBase: "/api/admin/content/tech-news",
+    backLabel: "← TECH NEWS",
+    newLabel: "New story",
+    kicker: "TECH NEWS",
+    titlePlaceholder: "Write a headline that names what changed…",
+    focusKeywordPlaceholder: "e.g. post-quantum tls",
+    seoHint: "Live Google and social previews. Generate meta from the story body anytime.",
+    authorHint: "USED IN ARTICLE SCHEMA + BYLINE",
+  },
+} as const;
 
 type Tab = "write" | "preview" | "seo";
 
-function slugify(value: string) {
-  return (value || "")
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/['"`]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
-}
-
-function stripHtml(html: string) {
-  return stripHtmlToText(html);
-}
-
-function deriveReadTime(html: string) {
-  const words = stripHtml(html).split(/\s+/).filter(Boolean).length;
-  return `${Math.max(1, Math.round(words / 220))} min read`;
-}
-
-function readLocalDraft(key: string): Partial<BlogPost> | null {
+function readLocalDraft(key: string): DraftFields | null {
   if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(key);
-    return raw ? (JSON.parse(raw) as Partial<BlogPost>) : null;
+    return raw ? (JSON.parse(raw) as DraftFields) : null;
   } catch {
     return null;
   }
 }
 
-export function BlogPostForm({ post, siteUrl, siteName }: Props) {
+export function PostEditorForm(props: PostEditorProps) {
+  const { kind, siteUrl, siteName } = props;
+  const post: DraftFields | undefined = props.post;
+  const cfg = POST_KINDS[kind];
+  const isBlog = kind === "blog";
+
   const router = useRouter();
   const isNew = !post;
-  const draftKey = `torq.admin.blog.draft.${post?.slug ?? "new"}`;
+  const draftKey = `torq.admin.${kind}.draft.${post?.slug ?? "new"}`;
   const savedDraft = isNew ? readLocalDraft(draftKey) : null;
 
   const [tab, setTab] = useState<Tab>("write");
@@ -63,43 +89,50 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
   const [slugTouched, setSlugTouched] = useState(!isNew || !!savedDraft?.slug);
   const [title, setTitle] = useState(post?.title ?? savedDraft?.title ?? "");
   const [seoTitle, setSeoTitle] = useState(post?.seoTitle ?? savedDraft?.seoTitle ?? "");
-  const [description, setDescription] = useState(
-    post?.description ?? savedDraft?.description ?? "",
-  );
+  const [description, setDescription] = useState(post?.description ?? savedDraft?.description ?? "");
   const [excerpt, setExcerpt] = useState(post?.excerpt ?? savedDraft?.excerpt ?? "");
   const [date, setDate] = useState(post?.date ?? new Date().toISOString().slice(0, 10));
   const [readTime, setReadTime] = useState(post?.readTime ?? "5 min read");
   const [readTimeTouched, setReadTimeTouched] = useState(!isNew);
   const [authorName, setAuthorName] = useState(post?.authorName ?? "");
   const [body, setBody] = useState(post?.body ?? savedDraft?.body ?? "");
-  const [status, setStatus] = useState<BlogStatus>(post?.status ?? "draft");
+  const [status, setStatus] = useState<PostStatus>(post?.status ?? "draft");
   const [coverImage, setCoverImage] = useState(post?.coverImage ?? savedDraft?.coverImage ?? "");
+  const [focusKeyword, setFocusKeyword] = useState(post?.focusKeyword ?? savedDraft?.focusKeyword ?? "");
+  // Blog-only
   const [tags, setTags] = useState<string[]>(post?.tags ?? savedDraft?.tags ?? []);
-  const [focusKeyword, setFocusKeyword] = useState(
-    post?.focusKeyword ?? savedDraft?.focusKeyword ?? "",
-  );
+  // Tech-news-only
+  const [dek, setDek] = useState(post?.dek ?? savedDraft?.dek ?? "");
+  const [category, setCategory] = useState<TechNewsCategory>(post?.category ?? savedDraft?.category ?? "AI & ML");
 
   const [saving, setSaving] = useState(false);
   const [pendingAction, setPendingAction] = useState<"draft" | "publish" | "save" | null>(null);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
+  const wordCount = useMemo(() => countWords(body), [body]);
   const effectiveSlug = slugTouched ? slug : slugify(title);
-  const effectiveReadTime = readTimeTouched ? readTime : deriveReadTime(body);
+  const effectiveReadTime = readTimeTouched ? readTime : readTimeFromWordCount(wordCount);
+  const kindFields = useMemo(() => (isBlog ? { tags } : { dek, category }), [isBlog, tags, dek, category]);
+  const bodyText = stripHtmlToText(body);
+  const noContent = !title.trim() && !body.trim();
 
   function generateSeo() {
     const generated = generateSeoFromContent({
       title,
       excerpt: excerpt || description,
-      bodyText: stripHtml(body),
+      bodyText,
       focusKeyword,
     });
     setSeoTitle(generated.metaTitle);
     setDescription(generated.metaDescription);
-    if (!excerpt.trim()) {
-      setExcerpt(generated.metaDescription);
-    }
+    if (!excerpt.trim()) setExcerpt(generated.metaDescription);
     setTab("seo");
+  }
+
+  function applyAiMeta({ metaTitle, metaDescription }: { metaTitle: string; metaDescription: string }) {
+    setSeoTitle(metaTitle);
+    setDescription(metaDescription);
   }
 
   // Draft autosave to localStorage (new posts only)
@@ -110,70 +143,55 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
       skipFirstAutosave.current = false;
       return;
     }
-    const payload = {
-      title,
-      description,
-      excerpt,
-      seoTitle,
-      body,
-      slug: effectiveSlug,
-      tags,
-      coverImage,
-      focusKeyword,
-    };
     try {
-      localStorage.setItem(draftKey, JSON.stringify(payload));
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          title,
+          description,
+          excerpt,
+          seoTitle,
+          body,
+          slug: effectiveSlug,
+          coverImage,
+          focusKeyword,
+          ...kindFields,
+        }),
+      );
     } catch {
-      /* noop */
+      /* storage full or blocked — autosave is best-effort */
     }
-  }, [
-    isNew,
-    title,
-    description,
-    excerpt,
-    seoTitle,
-    body,
-    effectiveSlug,
-    tags,
-    coverImage,
-    focusKeyword,
-    draftKey,
-  ]);
+  }, [isNew, title, description, excerpt, seoTitle, body, effectiveSlug, coverImage, focusKeyword, kindFields, draftKey]);
 
   const submit = useCallback(
-    async (nextStatus: BlogStatus) => {
+    async (nextStatus: PostStatus) => {
       setError("");
       setSuccessMsg("");
       setSaving(true);
       setPendingAction(isNew ? (nextStatus === "draft" ? "draft" : "publish") : "save");
-      const url = post
-        ? `/api/admin/content/blog/${encodeURIComponent(post.slug)}`
-        : "/api/admin/content/blog";
-      const method = post ? "PUT" : "POST";
-      const payload = {
-        slug: effectiveSlug || undefined,
-        title,
-        seoTitle: seoTitle.trim() || undefined,
-        description,
-        excerpt: excerpt.trim() || undefined,
-        date,
-        readTime: effectiveReadTime,
-        body,
-        authorName: authorName.trim() || undefined,
-        status: nextStatus,
-        coverImage: coverImage.trim() || undefined,
-        tags,
-        focusKeyword: focusKeyword.trim() || undefined,
-      };
-      const res = await fetch(url, {
-        method,
+      const res = await fetch(post?.slug ? `${cfg.apiBase}/${encodeURIComponent(post.slug)}` : cfg.apiBase, {
+        method: post ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json().catch(() => ({}));
+        body: JSON.stringify({
+          slug: effectiveSlug || undefined,
+          title,
+          seoTitle: seoTitle.trim() || undefined,
+          description,
+          excerpt: excerpt.trim() || undefined,
+          date,
+          readTime: effectiveReadTime,
+          body,
+          authorName: authorName.trim() || undefined,
+          status: nextStatus,
+          coverImage: coverImage.trim() || undefined,
+          focusKeyword: focusKeyword.trim() || undefined,
+          ...kindFields,
+        }),
+      }).catch(() => null);
+      const data = res ? await res.json().catch(() => ({})) : {};
       setSaving(false);
       setPendingAction(null);
-      if (!res.ok) {
+      if (!res?.ok) {
         setError(data.error || "Save failed");
         return;
       }
@@ -184,20 +202,16 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
         /* noop */
       }
       if (isNew && data?.slug) {
-        router.push(`/admin/blog/${encodeURIComponent(data.slug)}/edit`);
-        router.refresh();
+        router.push(`${cfg.adminBase}/${encodeURIComponent(data.slug)}/edit`);
       } else {
-        setSuccessMsg(
-          nextStatus === "published"
-            ? "Saved and published."
-            : "Draft saved.",
-        );
-        router.refresh();
+        setSuccessMsg(nextStatus === "published" ? "Saved and published." : "Draft saved.");
       }
+      router.refresh();
     },
     [
       isNew,
       post,
+      cfg,
       effectiveSlug,
       title,
       seoTitle,
@@ -208,14 +222,21 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
       body,
       authorName,
       coverImage,
-      tags,
       focusKeyword,
+      kindFields,
       draftKey,
       router,
     ],
   );
 
-  const wordCount = useMemo(() => stripHtml(body).split(/\s+/).filter(Boolean).length, [body]);
+  const bodyBrief = [
+    description,
+    !isBlog && dek,
+    focusKeyword && `Focus keyword: ${focusKeyword}`,
+    isBlog ? tags.length > 0 && `Tags: ${tags.join(", ")}` : `Category: ${category}`,
+  ]
+    .filter(Boolean)
+    .join(". ");
 
   return (
     <form
@@ -227,47 +248,26 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
       {/* Sticky publish bar */}
       <div className="sticky top-0 z-20 -mx-5 mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-background/95 px-5 py-3 backdrop-blur lg:-mx-8 lg:px-8">
         <div className="flex min-w-0 items-center gap-3">
-          <Link
-            href="/admin/blog"
-            className="mono-button text-muted-foreground transition-colors hover:text-foreground"
-          >
-            ← BLOG
+          <Link href={cfg.adminBase} className="mono-button text-muted-foreground transition-colors hover:text-foreground">
+            {cfg.backLabel}
           </Link>
           <span className="hidden text-muted-foreground sm:inline">|</span>
           <p className="hidden truncate text-[14px] font-medium text-foreground sm:block">
-            {title || (isNew ? "New post" : post?.title)}
+            {title || (isNew ? cfg.newLabel : post?.title)}
           </p>
           <StatusPill status={status} />
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {!isNew && post ? (
-            <Link
-              href={`/blog/${post.slug}`}
-              target="_blank"
-              className="btn-base btn-outline"
-            >
+            <Link href={`${cfg.publicBase}/${post.slug}`} target="_blank" className="btn-base btn-outline">
               View
             </Link>
           ) : null}
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => submit("draft")}
-            className="btn-base btn-outline"
-          >
+          <button type="button" disabled={saving} onClick={() => submit("draft")} className="btn-base btn-outline">
             {saving && pendingAction === "draft" ? "Saving…" : "Save draft"}
           </button>
-          <button
-            type="button"
-            disabled={saving}
-            onClick={() => submit("published")}
-            className="btn-base btn-primary"
-          >
-            {saving && pendingAction === "publish"
-              ? "Publishing…"
-              : status === "published"
-                ? "Update"
-                : "Publish"}
+          <button type="button" disabled={saving} onClick={() => submit("published")} className="btn-base btn-primary">
+            {saving && pendingAction === "publish" ? "Publishing…" : status === "published" ? "Update" : "Publish"}
           </button>
         </div>
       </div>
@@ -293,9 +293,7 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
                 type="button"
                 onClick={() => setTab(t)}
                 className={`mono-button rounded-sm px-3 py-1.5 transition-colors ${
-                  tab === t
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground"
+                  tab === t ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {t.toUpperCase()}
@@ -320,9 +318,26 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
                   onChange={(e) => setTitle(e.target.value)}
                   required
                   className="text-input text-[18px] font-medium"
-                  placeholder="Write a title that names the outcome…"
+                  placeholder={cfg.titlePlaceholder}
                 />
               </Field>
+
+              {!isBlog ? (
+                <Field
+                  label="Dek"
+                  hint="Short subtitle shown between the headline and the excerpt."
+                  charCount={dek.length}
+                  softMax={140}
+                >
+                  <textarea
+                    value={dek}
+                    onChange={(e) => setDek(e.target.value)}
+                    rows={2}
+                    className="text-input"
+                    placeholder="One sentence on why this matters."
+                  />
+                </Field>
+              ) : null}
 
               <Field
                 label="Description (meta)"
@@ -339,21 +354,12 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
                 />
               </Field>
 
-              <Field
-                label="Body"
-                hint="Rich text: H2–H3, lists, blockquote, code, links. Don't add another H1."
-              >
+              <Field label="Body" hint="Rich text: H2–H3, lists, blockquote, code, links. Don't add another H1.">
                 <div className="mb-2 flex justify-end">
                   <AiGenerateButton<string>
                     task="longFormBody"
                     variant="inline"
-                    context={{
-                      title,
-                      contentType: "blog",
-                      brief: [description, focusKeyword && `Focus keyword: ${focusKeyword}`, tags.length && `Tags: ${tags.join(", ")}`]
-                        .filter(Boolean)
-                        .join(". "),
-                    }}
+                    context={{ title, contentType: kind, brief: bodyBrief }}
                     onResult={setBody}
                     disabled={!title.trim()}
                   />
@@ -373,7 +379,7 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
           {tab === "preview" ? (
             <BlogPostPreview
               title={title}
-              description={description}
+              description={(!isBlog && dek) || description}
               date={date}
               readTime={effectiveReadTime}
               authorName={authorName.trim()}
@@ -384,43 +390,34 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
           {tab === "seo" ? (
             <div className="space-y-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="text-sm text-muted-foreground">
-                  Live Google and social previews. Generate meta from the post body anytime.
-                </p>
+                <p className="text-sm text-muted-foreground">{cfg.seoHint}</p>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="btn-base btn-secondary"
-                    onClick={generateSeo}
-                    disabled={!title.trim() && !body.trim()}
-                  >
+                  <button type="button" className="btn-base btn-secondary" onClick={generateSeo} disabled={noContent}>
                     Generate from content
                   </button>
                   <AiGenerateButton<{ metaTitle: string; metaDescription: string }>
                     task="seoMetaPair"
-                    context={{ title, focusKeyword, bodyText: stripHtml(body) || excerpt || description }}
-                    onResult={({ metaTitle, metaDescription }) => {
-                      setSeoTitle(metaTitle);
-                      setDescription(metaDescription);
-                    }}
+                    context={{ title, focusKeyword, bodyText: bodyText || excerpt || description }}
+                    onResult={applyAiMeta}
                     label="Generate with AI"
-                    disabled={!title.trim() && !body.trim()}
+                    disabled={noContent}
                   />
                 </div>
               </div>
               <SerpPreview
                 siteUrl={siteUrl}
-                path={effectiveSlug ? `/blog/${effectiveSlug}` : "/blog"}
+                path={effectiveSlug ? `${cfg.publicBase}/${effectiveSlug}` : cfg.publicBase}
                 title={(seoTitle.trim() || title) + (siteName ? ` | ${siteName}` : "")}
                 description={description}
               />
               <SocialPreview
                 siteUrl={siteUrl}
-                slug={effectiveSlug}
+                path={`${cfg.publicBase}/${effectiveSlug || "your-slug"}`}
                 title={seoTitle.trim() || title}
                 description={description}
                 coverImage={coverImage.trim() || undefined}
                 siteName={siteName}
+                kicker={cfg.kicker}
               />
               <BlogEditorInsights
                 title={title}
@@ -465,10 +462,7 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
               }
             />
             {post?.dateUpdated ? (
-              <Row
-                label="Last updated"
-                value={new Date(post.dateUpdated).toLocaleString()}
-              />
+              <Row label="Last updated" value={new Date(post.dateUpdated).toLocaleString()} />
             ) : null}
             <Row label="Word count" value={wordCount.toLocaleString()} />
           </Card>
@@ -490,31 +484,39 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
             />
             {effectiveSlug ? (
               <p className="mono-label mt-2 truncate text-muted-foreground">
-                /BLOG/{effectiveSlug.toUpperCase()}
+                {cfg.publicBase.toUpperCase()}/{effectiveSlug.toUpperCase()}
               </p>
             ) : null}
           </Card>
 
+          {!isBlog ? (
+            <Card title="CATEGORY">
+              <select
+                value={category}
+                onChange={(e) => setCategory(e.target.value as TechNewsCategory)}
+                className="text-input text-[13px]"
+              >
+                {TECH_NEWS_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </Card>
+          ) : null}
+
           <Card title="SEO">
             <div className="flex gap-2">
-              <button
-                type="button"
-                className="btn-base btn-secondary mb-3 w-full"
-                onClick={generateSeo}
-                disabled={!title.trim() && !body.trim()}
-              >
+              <button type="button" className="btn-base btn-secondary mb-3 w-full" onClick={generateSeo} disabled={noContent}>
                 Generate from content
               </button>
               <AiGenerateButton<{ metaTitle: string; metaDescription: string }>
                 task="seoMetaPair"
                 variant="inline"
-                context={{ title, focusKeyword, bodyText: stripHtml(body) || excerpt || description }}
-                onResult={({ metaTitle, metaDescription }) => {
-                  setSeoTitle(metaTitle);
-                  setDescription(metaDescription);
-                }}
+                context={{ title, focusKeyword, bodyText: bodyText || excerpt || description }}
+                onResult={applyAiMeta}
                 label="AI"
-                disabled={!title.trim() && !body.trim()}
+                disabled={noContent}
               />
             </div>
             <SidebarField label="SEO TITLE">
@@ -525,18 +527,16 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
                 placeholder="Defaults to title"
                 className="text-input text-[13px]"
               />
-              <p className="mono-label mt-1 text-muted-foreground">
-                {seoTitle.length || title.length} / 60 CHARS
-              </p>
+              <p className="mono-label mt-1 text-muted-foreground">{seoTitle.length || title.length} / 60 CHARS</p>
             </SidebarField>
             <SidebarField label="EXCERPT (CARDS)">
               <div className="mb-1 flex justify-end">
                 <AiGenerateButton<string>
                   task="excerpt"
                   variant="inline"
-                  context={{ title, bodyText: stripHtml(body) || description }}
+                  context={{ title, bodyText: bodyText || description }}
                   onResult={setExcerpt}
-                  disabled={!title.trim() && !body.trim()}
+                  disabled={noContent}
                 />
               </div>
               <textarea
@@ -552,26 +552,26 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
                 type="text"
                 value={focusKeyword}
                 onChange={(e) => setFocusKeyword(e.target.value)}
-                placeholder="e.g. mvp vs full product"
+                placeholder={cfg.focusKeywordPlaceholder}
                 className="text-input text-[13px]"
               />
-              <p className="mono-label mt-1 text-muted-foreground">
-                USED FOR CONTENT-SCORE CHECKS ONLY
-              </p>
+              <p className="mono-label mt-1 text-muted-foreground">USED FOR CONTENT-SCORE CHECKS ONLY</p>
             </SidebarField>
-            <SidebarField label="TAGS">
-              <div className="mb-1 flex justify-end">
-                <AiGenerateButton<{ keywords: string[] }>
-                  task="keywordSuggestions"
-                  variant="inline"
-                  label="Suggest"
-                  context={{ title, bodyText: stripHtml(body) || description }}
-                  onResult={({ keywords }) => setTags(Array.from(new Set([...tags, ...keywords])))}
-                  disabled={!title.trim() && !body.trim()}
-                />
-              </div>
-              <TagInput value={tags} onChange={setTags} />
-            </SidebarField>
+            {isBlog ? (
+              <SidebarField label="TAGS">
+                <div className="mb-1 flex justify-end">
+                  <AiGenerateButton<{ keywords: string[] }>
+                    task="keywordSuggestions"
+                    variant="inline"
+                    label="Suggest"
+                    context={{ title, bodyText: bodyText || description }}
+                    onResult={({ keywords }) => setTags(Array.from(new Set([...tags, ...keywords])))}
+                    disabled={noContent}
+                  />
+                </div>
+                <TagInput value={tags} onChange={setTags} />
+              </SidebarField>
+            ) : null}
             <SidebarField label="COVER IMAGE">
               <ImageUploadField
                 value={coverImage}
@@ -591,9 +591,7 @@ export function BlogPostForm({ post, siteUrl, siteName }: Props) {
                 placeholder={`Defaults to ${siteName}`}
                 className="text-input text-[13px]"
               />
-              <p className="mono-label mt-1 text-muted-foreground">
-                USED IN ARTICLE SCHEMA + AUTHOR BYLINE
-              </p>
+              <p className="mono-label mt-1 text-muted-foreground">{cfg.authorHint}</p>
             </SidebarField>
           </Card>
         </aside>
@@ -621,11 +619,7 @@ function Field({
       <div className="flex items-baseline justify-between gap-3">
         <label className="mono-label text-muted-foreground">{label.toUpperCase()}</label>
         {typeof charCount === "number" && typeof softMax === "number" ? (
-          <span
-            className={`mono-label tabular-nums ${
-              over ? "text-[color:var(--app-destructive)]" : "text-muted-foreground"
-            }`}
-          >
+          <span className={`mono-label tabular-nums ${over ? "text-[color:var(--app-destructive)]" : "text-muted-foreground"}`}>
             {charCount} / ~{softMax}
           </span>
         ) : null}
@@ -645,15 +639,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-function Row({
-  label,
-  value,
-  control,
-}: {
-  label: string;
-  value?: string | number;
-  control?: React.ReactNode;
-}) {
+function Row({ label, value, control }: { label: string; value?: string | number; control?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <span className="mono-label text-muted-foreground">{label.toUpperCase()}</span>
@@ -662,13 +648,7 @@ function Row({
   );
 }
 
-function SidebarField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function SidebarField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
       <p className="mono-label text-muted-foreground">{label}</p>
@@ -677,14 +657,12 @@ function SidebarField({
   );
 }
 
-function StatusPill({ status }: { status: BlogStatus }) {
+export function StatusPill({ status }: { status: PostStatus }) {
   const isPub = status === "published";
   return (
     <span
       className={`mono-label inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 ${
-        isPub
-          ? "bg-[color:var(--brand-mint)] text-[color:var(--app-fg)]"
-          : "bg-muted text-muted-foreground"
+        isPub ? "bg-[color:var(--brand-mint)] text-[color:var(--app-fg)]" : "bg-muted text-muted-foreground"
       }`}
     >
       <span
