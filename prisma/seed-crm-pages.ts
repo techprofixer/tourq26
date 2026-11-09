@@ -285,7 +285,6 @@ async function seedCrmPage(spec: CrmPageSpec) {
   const seo = {
     metaTitle: spec.metaTitle,
     metaDescription: spec.metaDescription,
-    schemaKeys: ["Service", "FAQPage"],
     focusKeyword: spec.focusKeyword,
     breadcrumbLabel: spec.breadcrumbLabel,
   };
@@ -338,14 +337,6 @@ async function seedCrmPage(spec: CrmPageSpec) {
     await prisma.solution.update({ where: { id: entity.id }, data: { pageId: page.id } });
   }
 
-  await prisma.pageEntity.create({
-    data: {
-      pageId: page.id,
-      entityKind: spec.kind,
-      entityId: entity.id,
-      isPrimary: true,
-    },
-  });
 
   console.log(`  created ${spec.path}`);
 }

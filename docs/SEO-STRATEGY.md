@@ -6,33 +6,24 @@ Use this as your ongoing SEO playbook to rank better and keep technical SEO heal
 
 ## What’s already in place (technical)
 
-- **Sitemap** — `src/app/sitemap.ts`  
-  - Home, `/privacy`, `/terms` with correct priorities and change frequencies.  
-  - Served at: `https://torqstudio.com/sitemap.xml`
+### Discovery files
+- **Sitemap** — `src/app/sitemap.ts` → `/sitemap.xml`. Static pages, published + indexable CMS pages, blog, case studies, tech news, freebies, with image-sitemap entries. Feature-flagged sections (blog, contact, torqOS, business systems) are only listed while enabled. `lastmod` is only emitted where it's real.
+- **Robots** — `src/app/robots.ts` + `src/lib/crawlers.ts` → `/robots.txt`. Names AI search crawlers (OAI-SearchBot, ChatGPT-User, Claude-SearchBot, PerplexityBot…) explicitly. **Admin → Brand & SEO → "Opt out of AI model training"** blocks training-only crawlers (GPTBot, Google-Extended, CCBot…) while keeping AI search allowed. "Block all search engines" is for staging only.
+- **llms.txt / llms-full.txt** — `src/lib/llms-txt.ts`. Curated Markdown index (llmstxt.org) plus the full text of every public page in one file for AI agents. Extra notes are editable in Admin → Brand & SEO.
+- **IndexNow** — `src/lib/indexnow.ts`. When `INDEXNOW_KEY` is set, publishing/editing/deleting CMS pages, blog posts, case studies or tech news pings Bing/Yandex/Seznam/Naver instantly (Bing also feeds ChatGPT Search and Copilot).
 
-- **Robots** — `src/app/robots.ts`  
-  - Allow all crawlers, no disallow rules, `sitemap` and `host` set.  
-  - Served at: `https://torqstudio.com/robots.txt`
+### Metadata & structured data
+- Root metadata in `src/app/layout.tsx`; Organization and WebSite JSON-LD carry stable `@id`s (`/#organization`, `/#website`) that every page's schema links to, forming one entity graph.
+- Every indexable page sets its own canonical (no root-level canonical — it would leak to pages that forget theirs).
+- Next **replaces** (doesn't merge) parent `openGraph` / `robots` objects, so pages that set them must use `DEFAULT_OG_IMAGE` and `INDEXABLE_ROBOTS` from `src/lib/seo.ts` (the latter allows full-length snippets and large image previews in AI Overviews/Discover).
+- CMS pages (`src/lib/cms/metadata.ts`) emit WebPage + Service (services/solutions/industries/technologies/locations), Article (guides/comparisons, with named author), or DefinedTerm (glossary), plus BreadcrumbList, FAQPage (from FAQ blocks) and optional custom JSON-LD.
 
-- **Metadata (root)** — `src/app/layout.tsx`  
-  - Title template, meta description, keywords, authors, robots.  
-  - Open Graph and Twitter Card (title, description, image).  
-  - Canonical for homepage.
-
-- **Per-page SEO**  
-  - Privacy & Terms: unique title, description, canonical, Open Graph, robots.
-
-- **Structured data (JSON-LD)**  
-  - `Organization` and `WebSite` (with `potentialAction` for search).  
-  - Rendered in root layout.
-
-- **OG/Twitter image**  
-  - Dynamic `opengraph-image` (no static `og.png` required).  
-  - 1200×630, used for social shares.
-
-- **Security / crawlability**  
-  - Sensible security headers in `next.config.ts`.  
-  - `metadataBase` set so relative URLs resolve correctly.
+### CMS (Admin → CMS Pages)
+- Page types: Service, Solution, Industry, Technology, Location, Guide, Comparison, Glossary term, Landing, Company. Non-entity pages render through the catch-all `src/app/[...slug]/page.tsx`; paths owned by built-in routes are rejected (`src/lib/cms/paths.ts`).
+- Per-page: meta title/description, focus keyword, index/follow, breadcrumb label, social share image, author (articles), canonical override, custom JSON-LD.
+- **Key takeaways block** — 2–5 quotable, answer-first statements; the content AI answers are most likely to cite.
+- Live SEO sidebar includes an **AI answers** category (summary, FAQ coverage, question-style headings, share image).
+- Moving a published page's URL automatically adds a 301 (and collapses redirect chains).
 
 ---
 
@@ -117,9 +108,9 @@ Use this as your ongoing SEO playbook to rank better and keep technical SEO heal
 - Give each page:  
   - Unique `title` and `description`.  
   - `alternates.canonical` (absolute URL).  
-  - `openGraph` (at least title, description, url).  
-  - `robots: { index: true, follow: true }` unless it’s private.
-- Add the URL to `src/app/sitemap.ts` with a sensible `priority` and `changeFrequency`.
+  - `openGraph` (title, description, url **and** `images: [DEFAULT_OG_IMAGE]`).  
+  - `robots: INDEXABLE_ROBOTS` unless it’s private.
+- Prefer creating it as a **CMS page** (sitemap, llms.txt, JSON-LD and IndexNow are automatic). Hand-built routes must be added to `src/app/sitemap.ts` and the Company list in `src/lib/llms-txt.ts`.
 - Use one H1 per page and clear headings (H2/H3) for structure.
 
 ---
@@ -131,6 +122,8 @@ Use this as your ongoing SEO playbook to rank better and keep technical SEO heal
 - [ ] Test OG image: share homepage link on Twitter/LinkedIn and confirm image and title/description.
 - [ ] Google Search Console: property added, sitemap submitted, no critical errors.
 - [ ] Bing Webmaster Tools: site added, sitemap submitted.
+- [ ] `INDEXNOW_KEY` set in production; `/indexnow-key.txt` returns it.
+- [ ] `/llms.txt` and `/llms-full.txt` list only live, public pages.
 - [ ] Core Web Vitals and SEO in the green (Lighthouse).
 - [ ] All important pages have unique meta title/description and canonicals.
 - [ ] At least 2–3 service pages live and in sitemap.
@@ -142,7 +135,11 @@ Use this as your ongoing SEO playbook to rank better and keep technical SEO heal
 | What              | File(s) |
 |-------------------|--------|
 | Sitemap           | `src/app/sitemap.ts` |
-| Robots            | `src/app/robots.ts` |
+| Robots            | `src/app/robots.ts`, `src/lib/crawlers.ts` |
+| llms.txt          | `src/lib/llms-txt.ts`, `src/app/llms.txt`, `src/app/llms-full.txt` |
+| IndexNow          | `src/lib/indexnow.ts`, `src/app/indexnow-key.txt` |
+| CMS SEO / schema  | `src/lib/cms/metadata.ts`, `src/lib/seo.ts`, `src/lib/cms/paths.ts` |
+| CMS catch-all     | `src/app/[...slug]/page.tsx` |
 | Root metadata     | `src/app/layout.tsx` |
 | OG image          | `src/app/opengraph-image.tsx` |
 | Privacy metadata  | `src/app/privacy/page.tsx` |

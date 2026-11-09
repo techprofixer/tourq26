@@ -1,4 +1,5 @@
 import { prisma, withDbTimeout } from "@/lib/db";
+import { ENTITY_HUB_PATH, getEntityCatalogCards } from "@/lib/entity-catalog";
 
 export type NavLink = {
   label: string;
@@ -29,36 +30,21 @@ export type NavMegaMenuItem = { label: string; href: string };
 export type NavMegaMenus = Record<string, NavMegaMenuItem[]>;
 
 /**
- * Live catalogue lists for the Services/Solutions/Industries nav dropdowns — pulled directly from
- * the Service/Solution/Industry tables so new entries (e.g. a newly published service) show up in
- * the nav without a content edit.
+ * Live catalogue lists for the Services/Solutions/Industries nav dropdowns. Reuses the hub-page
+ * catalogue so the nav only links to entities that actually resolve to a page (a published CMS
+ * page, or a static service fallback) — listing every active DB row produced 404 links for
+ * entities whose page is still a draft.
  */
 export async function readNavMegaMenus(): Promise<NavMegaMenus> {
-  try {
-    const [services, solutions, industries] = await withDbTimeout(
-      Promise.all([
-        prisma.service.findMany({
-          where: { isActive: true },
-          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-        }),
-        prisma.solution.findMany({
-          where: { isActive: true },
-          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-        }),
-        prisma.industry.findMany({
-          where: { isActive: true },
-          orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
-        }),
-      ]),
-    );
-    return {
-      "/services": services.map((s) => ({ label: s.name, href: `/services/${s.slug}` })),
-      "/solutions": solutions.map((s) => ({ label: s.name, href: `/solutions/${s.slug}` })),
-      "/industries": industries.map((s) => ({ label: s.name, href: `/industries/${s.slug}` })),
-    };
-  } catch {
-    return {};
-  }
+  const kinds = ["SERVICE", "SOLUTION", "INDUSTRY"] as const;
+  const catalogs = await Promise.all(kinds.map((kind) => getEntityCatalogCards(kind)));
+  const menus: NavMegaMenus = {};
+  kinds.forEach((kind, i) => {
+    if (catalogs[i].length === 0) return;
+    const prefix = ENTITY_HUB_PATH[kind];
+    menus[prefix] = catalogs[i].map((c) => ({ label: c.title, href: `${prefix}/${c.slug}` }));
+  });
+  return menus;
 }
 
 export async function readPrimaryNav(): Promise<NavLink[]> {

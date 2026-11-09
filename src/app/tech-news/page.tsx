@@ -6,7 +6,7 @@ import JsonLd from "@/components/JsonLd";
 import { publishedTechNewsPosts, readTechNewsPosts } from "@/lib/tech-news-content";
 import { getSiteUrl } from "@/lib/site-url";
 import { readSiteContent } from "@/lib/content";
-import { breadcrumbListJsonLd, techNewsCollectionJsonLd, webPageJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, techNewsCollectionJsonLd, webPageJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { formatLongDate } from "@/lib/date-format";
 
 const PAGE_PATH = "/tech-news";
@@ -34,6 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
     ],
     alternates: { canonical },
     openGraph: {
+      images: [DEFAULT_OG_IMAGE],
       title: ogTitle,
       description,
       url: canonical,
@@ -45,7 +46,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title: ogTitle,
       description,
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 

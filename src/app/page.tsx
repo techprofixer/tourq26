@@ -23,9 +23,10 @@ import { SupportingProseSection } from "@/components/marketing/SupportingProseSe
 export async function generateMetadata(): Promise<Metadata> {
   const site = await readSiteContent();
   const siteUrl = site.siteUrl.replace(/\/$/, "");
+  // Only the canonical is page-specific. Don't set `openGraph` here: it would replace (not merge)
+  // the layout's OG title/description/image, leaving the homepage with a bare og:url.
   return {
     alternates: { canonical: siteUrl },
-    openGraph: { url: siteUrl },
   };
 }
 

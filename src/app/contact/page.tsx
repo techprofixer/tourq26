@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import ContactForm from "./ContactForm";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -17,12 +17,13 @@ export async function generateMetadata(): Promise<Metadata> {
       "Contact Torq Studio: senior software engineers for mobile apps, websites, AI, technical consulting, and remote delivery. Free 30-min consultation.",
     alternates: { canonical: `${baseUrl}/contact` },
     openGraph: {
+      images: [DEFAULT_OG_IMAGE],
       title: "Contact Torq Studio | Get a Free Consultation",
       description:
         "Discuss your project with our team. Mobile apps, web, AI, remote IT — we're here to help you scale smarter.",
       url: `${baseUrl}/contact`,
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 

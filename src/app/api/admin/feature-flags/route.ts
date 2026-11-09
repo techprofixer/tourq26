@@ -38,5 +38,9 @@ export const PUT = withAdmin(async (request: NextRequest) => {
   revalidatePath("/", "layout");
   revalidatePath("/blog");
   revalidatePath("/contact");
+  // Discovery files hide sections whose flag is off.
+  revalidatePath("/sitemap.xml");
+  revalidatePath("/llms.txt");
+  revalidatePath("/llms-full.txt");
   return NextResponse.json({ resolved });
 });

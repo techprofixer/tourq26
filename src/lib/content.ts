@@ -75,6 +75,10 @@ export type SiteContent = {
   bingSiteVerification: string;
   /** When true, the whole site is blocked from indexing (robots meta + robots.txt) — for staging. */
   robotsNoIndex: boolean;
+  /** Block AI *training* crawlers in robots.txt while keeping AI search/answer crawlers allowed. */
+  blockAiTraining: boolean;
+  /** Extra Markdown appended to /llms.txt (positioning, preferred citations, key facts). */
+  llmsTxtExtra: string;
 };
 
 export type ContactSubmission = {
@@ -269,6 +273,8 @@ function getDefaultSiteContent(): SiteContent {
     googleSiteVerification: "",
     bingSiteVerification: "",
     robotsNoIndex: false,
+    blockAiTraining: false,
+    llmsTxtExtra: "",
   };
 }
 
@@ -297,6 +303,8 @@ export async function readSiteContent(): Promise<SiteContent> {
     googleSiteVerification: row.googleSiteVerification || d.googleSiteVerification,
     bingSiteVerification: row.bingSiteVerification || d.bingSiteVerification,
     robotsNoIndex: row.robotsNoIndex ?? d.robotsNoIndex,
+    blockAiTraining: row.blockAiTraining ?? d.blockAiTraining,
+    llmsTxtExtra: row.llmsTxtExtra ?? d.llmsTxtExtra,
   };
 }
 
@@ -317,6 +325,8 @@ export async function writeSiteContent(data: SiteContent): Promise<void> {
     googleSiteVerification: data.googleSiteVerification.trim(),
     bingSiteVerification: data.bingSiteVerification.trim(),
     robotsNoIndex: data.robotsNoIndex,
+    blockAiTraining: data.blockAiTraining,
+    llmsTxtExtra: data.llmsTxtExtra.trim().slice(0, 20_000),
   };
   await writeSingletonSetting((args) => prisma.siteSettings.upsert(args), payload);
 }

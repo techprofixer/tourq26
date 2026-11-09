@@ -56,6 +56,14 @@ function LinkIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function SparkIcon(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 3.5 13.9 10.1 20.5 12l-6.6 1.9L12 20.5l-1.9-6.6L3.5 12l6.6-1.9Z" />
+    </svg>
+  );
+}
+
 function LayersIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" {...props}>
@@ -104,9 +112,10 @@ const CATEGORY_META: Record<SeoCheckCategory, { label: string; icon: (p: React.S
   media: { label: "Media", icon: ImageIcon },
   links: { label: "Links", icon: LinkIcon },
   structure: { label: "Structure", icon: LayersIcon },
+  aeo: { label: "AI answers", icon: SparkIcon },
 };
 
-const CATEGORY_ORDER: SeoCheckCategory[] = ["keyword", "content", "media", "links", "structure"];
+const CATEGORY_ORDER: SeoCheckCategory[] = ["keyword", "content", "aeo", "media", "links", "structure"];
 
 const RECOMMENDED_BLOCKS: { key: string; label: string }[] = [
   { key: "hero", label: "Hero" },
@@ -142,6 +151,10 @@ export function SeoAnalysisSidebar({
   rawHtml,
   siteUrl,
   blockTypesPresent,
+  faqCount,
+  summaryItems,
+  questionHeadings,
+  hasSocialImage,
 }: {
   title: string;
   slug: string;
@@ -155,6 +168,10 @@ export function SeoAnalysisSidebar({
   rawHtml: string;
   siteUrl?: string;
   blockTypesPresent: string[];
+  faqCount?: number;
+  summaryItems?: number;
+  questionHeadings?: number;
+  hasSocialImage?: boolean;
 }) {
   const checks = analyzePageSeo({
     title,
@@ -169,6 +186,10 @@ export function SeoAnalysisSidebar({
     rawHtml,
     siteUrl,
     blockTypesPresent,
+    faqCount,
+    summaryItems,
+    questionHeadings,
+    hasSocialImage,
   });
   const summary = summarizeSeoChecks(checks);
   const summaryStyle = STATUS_STYLE[summary.status];

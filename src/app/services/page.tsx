@@ -6,7 +6,8 @@ import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import { CmsPageView, findPublishedPage } from "@/components/cms/CmsEntityPage";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd, webPageJsonLd } from "@/lib/seo";
+import { readSiteContent } from "@/lib/content";
+import { breadcrumbListJsonLd, webPageJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 import { getEntityCatalogCards } from "@/lib/entity-catalog";
 import { buildPageMetadata } from "@/lib/cms/metadata";
@@ -19,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = await getSiteUrl();
 
   const cms = await findPublishedPage("/services");
-  if (cms) return buildPageMetadata(cms, baseUrl);
+  if (cms) return buildPageMetadata(cms, baseUrl, (await readSiteContent()).siteName);
 
   return {
     title: "Services",
@@ -27,12 +28,13 @@ export async function generateMetadata(): Promise<Metadata> {
       "Mobile apps, websites and web APIs, AI, remote engineering, and technical consulting—how senior Torq Studio engineers deliver and advise.",
     alternates: { canonical: `${baseUrl}/services` },
     openGraph: {
+      images: [DEFAULT_OG_IMAGE],
       title: "Services | Torq Studio",
       description:
         "Industry-grade delivery across mobile, web, AI, and embedded engineering teams.",
       url: `${baseUrl}/services`,
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 

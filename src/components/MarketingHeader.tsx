@@ -13,6 +13,7 @@ export default async function MarketingHeader({ bannerActive = false }: { banner
       navLinks={navLinks}
       megaMenus={megaMenus}
       logoUrl={brand.logoUrl}
+      logoDarkUrl={brand.logoDarkUrl}
       bannerActive={bannerActive}
     />
   );

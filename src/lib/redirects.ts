@@ -54,6 +54,25 @@ export async function createRedirect(input: {
   return toDto(row);
 }
 
+/**
+ * Records a 301 when a live page moves, so its links and rankings follow it. Also collapses
+ * chains (anything pointing at `fromPath` now points straight at `toPath`) and drops a stale
+ * redirect *from* `toPath`, which would otherwise shadow the page at its new home.
+ */
+export async function recordPageMove(fromPath: string, toPath: string): Promise<void> {
+  if (fromPath === toPath || !isSafeRedirectPath(fromPath) || !isSafeRedirectPath(toPath)) return;
+  const note = `Auto: CMS page moved from ${fromPath}`;
+  await prisma.$transaction([
+    prisma.redirect.deleteMany({ where: { fromPath: toPath } }),
+    prisma.redirect.updateMany({ where: { toPath: fromPath }, data: { toPath } }),
+    prisma.redirect.upsert({
+      where: { fromPath },
+      create: { fromPath, toPath, type: "PERMANENT_301", note },
+      update: { toPath, type: "PERMANENT_301", isActive: true, note },
+    }),
+  ]);
+}
+
 export async function updateRedirect(
   id: string,
   patch: Partial<{ toPath: string; type: RedirectDto["type"]; isActive: boolean; note: string }>,

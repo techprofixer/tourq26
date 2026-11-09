@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { isSafeRedirectPath } from "@/lib/redirects";
-import { isSafeCssColor } from "@/lib/brand-content";
+import { isHexColor } from "@/lib/theme";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { validateMediaUpload } from "@/lib/media";
 
@@ -16,15 +16,18 @@ describe("isSafeRedirectPath", () => {
   );
 });
 
-describe("isSafeCssColor", () => {
-  it.each(["#fff", "#A1B2C3", "#a1b2c3dd", "rgb(1, 2, 3)", "hsl(200 50% 40%)", "rgba(0,0,0,0.5)"])(
-    "allows %s",
-    (c) => expect(isSafeCssColor(c)).toBe(true),
-  );
-  it.each(["red}</style><script>alert(1)</script>", "#ggg", "url(x)", "expression(alert(1))", "red;color:blue", ""])(
-    "rejects %s",
-    (c) => expect(isSafeCssColor(c)).toBe(false),
-  );
+describe("isHexColor (theme colors are injected into a <style> tag)", () => {
+  it.each(["#fff", "#A1B2C3", "#a1b2c3"])("allows %s", (c) => expect(isHexColor(c)).toBe(true));
+  it.each([
+    "red}</style><script>alert(1)</script>",
+    "#ggg",
+    "#a1b2c3dd",
+    "rgb(1, 2, 3)",
+    "url(x)",
+    "expression(alert(1))",
+    "red;color:blue",
+    "",
+  ])("rejects %s", (c) => expect(isHexColor(c)).toBe(false));
 });
 
 describe("clientIp", () => {

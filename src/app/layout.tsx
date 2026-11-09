@@ -7,8 +7,10 @@ import FloatingChatWidget from "@/components/FloatingChatWidget";
 import MetaPixel from "@/components/MetaPixel";
 import UtmCapture from "@/components/UtmCapture";
 import { isFeatureEnabled } from "@/lib/feature-flags";
-import { readBrandContent, findBrandFont, isSafeCssColor } from "@/lib/brand-content";
+import { readBrandContent } from "@/lib/brand-content";
+import { buildThemeVars, themeFontSlugs, themeVarsToCss } from "@/lib/theme";
 import JsonLd from "@/components/JsonLd";
+import { INDEXABLE_ROBOTS, organizationId, websiteId } from "@/lib/seo";
 
 // Display sans — closest open-source match to the brand's custom "The Future"
 // face (DESIGN.md → typography). Inter at 400/500 with negative tracking is
@@ -55,7 +57,7 @@ export async function generateMetadata(): Promise<Metadata> {
     creator: site.siteName,
     robots: site.robotsNoIndex
       ? { index: false, follow: false, googleBot: { index: false, follow: false } }
-      : { index: true, follow: true, googleBot: { index: true, follow: true } },
+      : INDEXABLE_ROBOTS,
     ...(site.googleSiteVerification || site.bingSiteVerification
       ? {
           verification: {
@@ -91,7 +93,8 @@ export async function generateMetadata(): Promise<Metadata> {
         ? { site: `@${site.twitterSite}`, creator: `@${site.twitterSite}` }
         : {}),
     },
-    alternates: { canonical: siteUrl },
+    // No root-level `alternates.canonical`: it would be inherited by every page that doesn't set
+    // its own, silently canonicalising them to the homepage. Each indexable page sets its own.
   };
 }
 
@@ -108,22 +111,13 @@ export default async function RootLayout({
   ]);
   const siteUrl = site.siteUrl.replace(/\/$/, "");
 
-  const cssVarOverrides: string[] = [];
-  if (brand.colorPrimary && isSafeCssColor(brand.colorPrimary)) {
-    cssVarOverrides.push(`--app-primary:${brand.colorPrimary}`, `--app-primary-hover:${brand.colorPrimary}`);
-  }
-  if (brand.colorAccent && isSafeCssColor(brand.colorAccent)) {
-    cssVarOverrides.push(`--brand-mint:${brand.colorAccent}`, `--app-accent:${brand.colorAccent}`);
-  }
-  const headingFont = findBrandFont(brand.fontHeading);
-  const bodyFont = findBrandFont(brand.fontBody);
-  if (headingFont) cssVarOverrides.push(`--font-display-stack:'${headingFont.family}',var(--font-inter),sans-serif`);
-  if (bodyFont) cssVarOverrides.push(`--font-body-stack:'${bodyFont.family}',var(--font-inter),sans-serif`);
-  const googleFontsSlugs = [headingFont?.googleFontsSlug, bodyFont?.googleFontsSlug].filter(Boolean) as string[];
+  const themeCss = themeVarsToCss(buildThemeVars(brand));
+  const googleFontsSlugs = themeFontSlugs(brand);
 
   const organizationJsonLd = {
     "@context": "https://schema.org",
     "@type": "Organization",
+    "@id": organizationId(siteUrl),
     name: site.siteName,
     url: siteUrl,
     description: site.defaultDescription,
@@ -135,16 +129,17 @@ export default async function RootLayout({
   const websiteJsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
+    "@id": websiteId(siteUrl),
     name: site.siteName,
     url: siteUrl,
     description: site.defaultDescription,
-    publisher: { "@type": "Organization", name: site.siteName, url: siteUrl },
+    publisher: { "@id": organizationId(siteUrl) },
     inLanguage: "en-US",
   };
 
   return (
     <html lang="en" data-scroll-behavior="smooth">
-      {googleFontsSlugs.length || cssVarOverrides.length ? (
+      {googleFontsSlugs.length || themeCss ? (
         <head>
           {googleFontsSlugs.length ? (
             <>
@@ -159,9 +154,7 @@ export default async function RootLayout({
               href={`https://fonts.googleapis.com/css2?family=${slug}&display=swap`}
             />
           ))}
-          {cssVarOverrides.length ? (
-            <style dangerouslySetInnerHTML={{ __html: `:root{${cssVarOverrides.join(";")}}` }} />
-          ) : null}
+          {themeCss ? <style id="brand-theme" dangerouslySetInnerHTML={{ __html: themeCss }} /> : null}
         </head>
       ) : null}
       <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>

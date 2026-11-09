@@ -71,7 +71,6 @@ async function main() {
         seo: {
           metaTitle: legacy.title,
           metaDescription: legacy.description,
-          schemaKeys: ["Service", "FAQPage"],
           focusKeyword: legacy.title.toLowerCase(),
         },
         status: "PUBLISHED",
@@ -97,7 +96,6 @@ async function main() {
         seo: {
           metaTitle: legacy.title,
           metaDescription: legacy.description,
-          schemaKeys: ["Service", "FAQPage"],
           focusKeyword: legacy.title.toLowerCase(),
           breadcrumbLabel: legacy.title,
         },
@@ -111,14 +109,6 @@ async function main() {
         await prisma.service.update({
           where: { id: service.id },
           data: { pageId: page.id },
-        });
-        await prisma.pageEntity.create({
-          data: {
-            pageId: page.id,
-            entityKind: "SERVICE",
-            entityId: service.id,
-            isPrimary: true,
-          },
         });
       }
       console.log(`  created ${path}`);

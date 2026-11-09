@@ -308,6 +308,51 @@ export function SiteForm({
       </section>
 
       <section className="card-flat space-y-4">
+        <div>
+          <h2 className="display-sm text-foreground">AI search & answer engines</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            How ChatGPT, Claude, Perplexity, Gemini and Copilot discover and cite this site. Served at{" "}
+            <code className="rounded bg-muted px-1 font-mono text-[11px]">/llms.txt</code>,{" "}
+            <code className="rounded bg-muted px-1 font-mono text-[11px]">/llms-full.txt</code> and{" "}
+            <code className="rounded bg-muted px-1 font-mono text-[11px]">/robots.txt</code>.
+          </p>
+        </div>
+        <label className="flex items-start gap-3 rounded-lg border border-border bg-surface/50 p-3.5">
+          <input
+            type="checkbox"
+            checked={data.blockAiTraining}
+            onChange={(e) => update("blockAiTraining", e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-border"
+          />
+          <span>
+            <span className="block text-sm font-medium text-foreground/90">
+              Opt out of AI model training
+            </span>
+            <span className="mt-0.5 block text-xs text-muted-foreground">
+              Disallows training-only crawlers (GPTBot, Google-Extended, CCBot, Applebot-Extended, Meta, ByteDance…).
+              AI <em>search</em> crawlers that cite and link back (OAI-SearchBot, ChatGPT-User, Claude-SearchBot,
+              PerplexityBot, Bingbot, Googlebot) stay allowed, so you keep showing up in AI answers. Leave off to
+              maximise brand presence in future models.
+            </span>
+          </span>
+        </label>
+        <div>
+          <label className="block text-sm font-medium text-foreground/90">Extra notes for llms.txt (Markdown)</label>
+          <textarea
+            value={data.llmsTxtExtra}
+            onChange={(e) => update("llmsTxtExtra", e.target.value)}
+            rows={6}
+            placeholder={"## Key facts\n\n- Founded: <year>\n- Senior-only engineering team\n- Preferred name: Torq Studio (not \"Torq\")"}
+            className={`${ADMIN_INPUT_CLASS} font-mono text-sm placeholder:text-muted-foreground`}
+          />
+          <p className="mt-1 text-xs text-muted-foreground">
+            Appended to /llms.txt. Use short factual statements you want AI assistants to quote accurately —
+            positioning, differentiators, pricing model, preferred brand spelling.
+          </p>
+        </div>
+      </section>
+
+      <section className="card-flat space-y-4">
         <h2 className="display-sm text-foreground">Keywords & social URLs</h2>
         <div>
           <div className="flex items-baseline justify-between gap-2">

@@ -1,32 +1,14 @@
 import { prisma, readSingletonSetting, writeSingletonSetting, SINGLETON_KEY } from "@/lib/db";
 
-/** Curated fonts — kept small so runtime `<link>` injection never needs an arbitrary Google Fonts URL. */
-export const BRAND_FONTS = [
-  { key: "inter", label: "Inter (default)", family: "Inter", googleFontsSlug: null },
-  { key: "manrope", label: "Manrope", family: "Manrope", googleFontsSlug: "Manrope:wght@400;500;600;700" },
-  { key: "sora", label: "Sora", family: "Sora", googleFontsSlug: "Sora:wght@400;500;600;700" },
-  { key: "space-grotesk", label: "Space Grotesk", family: "Space Grotesk", googleFontsSlug: "Space+Grotesk:wght@400;500;600;700" },
-  { key: "poppins", label: "Poppins", family: "Poppins", googleFontsSlug: "Poppins:wght@400;500;600;700" },
-  { key: "jetbrains-mono", label: "JetBrains Mono", family: "JetBrains Mono", googleFontsSlug: "JetBrains+Mono:wght@400;500;600" },
-] as const;
-
-export type BrandFontKey = (typeof BRAND_FONTS)[number]["key"];
-
-export function findBrandFont(key: string | null | undefined) {
-  return BRAND_FONTS.find((f) => f.key === key) ?? null;
-}
-
-/** Hex (#rgb, #rrggbb, #rrggbbaa) or simple rgb()/hsl() — anything else is rejected because it is injected into a <style> tag. */
-export function isSafeCssColor(value: string): boolean {
-  return /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value) || /^(?:rgb|hsl)a?\([\d\s.,%\/]+\)$/i.test(value);
-}
-
 export const BRAND_FIELDS = [
   "logoUrl",
   "logoDarkUrl",
   "faviconUrl",
   "colorPrimary",
   "colorAccent",
+  "colorSecondary",
+  "colorDark",
+  "radiusScale",
   "fontHeading",
   "fontBody",
   "voiceDescription",
@@ -39,6 +21,12 @@ export type BrandContent = {
   faviconUrl: string;
   colorPrimary: string;
   colorAccent: string;
+  /** Links, emphasis and the brand gradient's outer stops. */
+  colorSecondary: string;
+  /** Background of the dark hero / CTA bands. */
+  colorDark: string;
+  /** Key of `RADIUS_SCALES` in `@/lib/theme`; blank = default. */
+  radiusScale: string;
   fontHeading: string;
   fontBody: string;
   voiceDescription: string;
@@ -52,6 +40,9 @@ function getDefaultBrandContent(): BrandContent {
     faviconUrl: "",
     colorPrimary: "",
     colorAccent: "",
+    colorSecondary: "",
+    colorDark: "",
+    radiusScale: "",
     fontHeading: "",
     fontBody: "",
     voiceDescription: "",
@@ -69,6 +60,9 @@ export async function readBrandContent(): Promise<BrandContent> {
       faviconUrl: row.faviconUrl || d.faviconUrl,
       colorPrimary: row.colorPrimary || d.colorPrimary,
       colorAccent: row.colorAccent || d.colorAccent,
+      colorSecondary: row.colorSecondary || d.colorSecondary,
+      colorDark: row.colorDark || d.colorDark,
+      radiusScale: row.radiusScale || d.radiusScale,
       fontHeading: row.fontHeading || d.fontHeading,
       fontBody: row.fontBody || d.fontBody,
       voiceDescription: row.voiceDescription || d.voiceDescription,
@@ -84,6 +78,9 @@ export async function writeBrandContent(data: BrandContent): Promise<void> {
     faviconUrl: data.faviconUrl.trim(),
     colorPrimary: data.colorPrimary.trim(),
     colorAccent: data.colorAccent.trim(),
+    colorSecondary: data.colorSecondary.trim(),
+    colorDark: data.colorDark.trim(),
+    radiusScale: data.radiusScale.trim(),
     fontHeading: data.fontHeading.trim(),
     fontBody: data.fontBody.trim(),
     voiceDescription: data.voiceDescription.trim(),

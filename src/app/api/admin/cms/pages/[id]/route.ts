@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import type { WorkflowStatus } from "@prisma/client";
+import type { PageType, WorkflowStatus } from "@prisma/client";
 import { withAdmin } from "@/lib/with-admin";
 import { clientErrorMessage, jsonError } from "@/lib/api-response";
 import { parseBlocks } from "@/lib/cms/blocks";
@@ -9,11 +9,49 @@ import {
   publishPage,
   transitionPage,
   updatePage,
+  briefInputSchema,
+  seoInputSchema,
   type UpsertPageInput,
 } from "@/lib/cms/pages";
 import { logActivity } from "@/lib/activity-log";
+import { submitToIndexNow } from "@/lib/indexnow";
+import { recordPageMove } from "@/lib/redirects";
 
 type Ctx = { params: Promise<{ id: string }> };
+
+/** Hub routes whose entity cards depend on which pages of that type are published. */
+const HUB_FOR_TYPE: Partial<Record<PageType, string>> = {
+  SERVICE: "/services",
+  SOLUTION: "/solutions",
+  INDUSTRY: "/industries",
+  TECHNOLOGY: "/technologies",
+  LOCATION: "/locations",
+};
+
+/**
+ * Refreshes everything a CMS page change can affect. `wasPublic` / `isPublic` describe the page
+ * before and after the change; when either is true the URL is (or was) live, so the discovery
+ * files are rebuilt and IndexNow is pinged — including on unpublish/delete so engines drop it.
+ */
+function afterPageChange(opts: {
+  paths: string[];
+  type: PageType;
+  wasPublic: boolean;
+  isPublic: boolean;
+}) {
+  revalidatePath("/admin/cms/pages");
+  if (!opts.wasPublic && !opts.isPublic) return;
+  const paths = Array.from(new Set(opts.paths.filter(Boolean)));
+  for (const p of paths) revalidatePath(p);
+  const hub = HUB_FOR_TYPE[opts.type];
+  if (hub) revalidatePath(hub);
+  revalidatePath("/sitemap.xml");
+  revalidatePath("/llms.txt");
+  revalidatePath("/llms-full.txt");
+  // Nav mega-menus list published entity pages.
+  revalidatePath("/", "layout");
+  void submitToIndexNow(paths);
+}
 
 export const GET = withAdmin(async (_request: NextRequest, ctx: Ctx) => {
   const { id } = await ctx.params;
@@ -24,37 +62,38 @@ export const GET = withAdmin(async (_request: NextRequest, ctx: Ctx) => {
 
 export const PATCH = withAdmin(async (request: NextRequest, ctx: Ctx) => {
   const { id } = await ctx.params;
-  const body = (await request.json()) as Record<string, unknown>;
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!body) return jsonError(400, "Invalid JSON body");
 
-  if (body.action === "publish") {
-    const page = await publishPage(id);
-    void logActivity({ entityType: "cms-page", entityId: id, action: "published", summary: `Published CMS page "${page?.title ?? id}"` });
-    if (page?.path) {
-      revalidatePath(page.path);
-      revalidatePath("/sitemap.xml");
-      // A SERVICE page's publish state gates whether its entity card is listed on /services.
-      if (page.type === "SERVICE") revalidatePath("/services");
-    }
-    return NextResponse.json(page);
-  }
+  const before = await getPageById(id);
+  if (!before) return jsonError(404, "Not found");
+  const wasPublic = before.status === "PUBLISHED";
 
-  if (body.action === "transition" && body.toStatus) {
-    const page = await transitionPage(
-      id,
-      body.toStatus as WorkflowStatus,
-      body.comment != null ? String(body.comment) : undefined,
-    );
+  if (body.action === "publish" || (body.action === "transition" && body.toStatus)) {
+    const page =
+      body.action === "publish"
+        ? await publishPage(id)
+        : await transitionPage(
+            id,
+            body.toStatus as WorkflowStatus,
+            body.comment != null ? String(body.comment) : undefined,
+          );
+    if (!page) return jsonError(404, "Not found");
     void logActivity({
       entityType: "cms-page",
       entityId: id,
-      action: page?.status === "PUBLISHED" ? "published" : "updated",
-      summary: `Transitioned CMS page "${page?.title ?? id}" to ${body.toStatus}`,
+      action: page.status === "PUBLISHED" ? "published" : "updated",
+      summary:
+        body.action === "publish"
+          ? `Published CMS page "${page.title}"`
+          : `Transitioned CMS page "${page.title}" to ${page.status}`,
     });
-    if (page?.status === "PUBLISHED" && page.path) {
-      revalidatePath(page.path);
-      revalidatePath("/sitemap.xml");
-      if (page.type === "SERVICE") revalidatePath("/services");
-    }
+    afterPageChange({
+      paths: [page.path],
+      type: page.type,
+      wasPublic,
+      isPublic: page.status === "PUBLISHED",
+    });
     return NextResponse.json(page);
   }
 
@@ -68,17 +107,30 @@ export const PATCH = withAdmin(async (request: NextRequest, ctx: Ctx) => {
   }
   if (body.path != null) patch.path = String(body.path);
   if (body.blocks != null) patch.blocks = parseBlocks(body.blocks);
-  if (body.seo != null) patch.seo = body.seo as UpsertPageInput["seo"];
-  if (body.brief != null) patch.brief = body.brief as UpsertPageInput["brief"];
 
   try {
+    if (body.seo != null) patch.seo = seoInputSchema.parse(body.seo);
+    if (body.brief != null) patch.brief = briefInputSchema.parse(body.brief);
     const page = await updatePage(id, patch);
-    if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    void logActivity({ entityType: "cms-page", entityId: id, action: "updated", summary: `Updated CMS page "${page.title}"` });
-    if (page.status === "PUBLISHED") {
-      revalidatePath(page.path);
-    }
-    revalidatePath("/admin/cms/pages");
+    if (!page) return jsonError(404, "Not found");
+
+    const moved = wasPublic && before.path !== page.path;
+    if (moved) await recordPageMove(before.path, page.path);
+
+    void logActivity({
+      entityType: "cms-page",
+      entityId: id,
+      action: "updated",
+      summary: moved
+        ? `Updated CMS page "${page.title}" (moved ${before.path} → ${page.path}, 301 added)`
+        : `Updated CMS page "${page.title}"`,
+    });
+    afterPageChange({
+      paths: [before.path, page.path],
+      type: page.type,
+      wasPublic,
+      isPublic: page.status === "PUBLISHED",
+    });
     return NextResponse.json(page);
   } catch (e) {
     return jsonError(400, clientErrorMessage(e, "Failed to update page", "cms-pages"));
@@ -89,12 +141,15 @@ export const DELETE = withAdmin(async (_request: NextRequest, ctx: Ctx) => {
   const { id } = await ctx.params;
   const { prisma } = await import("@/lib/db");
   const page = await getPageById(id);
-  if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!page) return jsonError(404, "Not found");
 
   await prisma.page.delete({ where: { id } });
   void logActivity({ entityType: "cms-page", entityId: id, action: "deleted", summary: `Deleted CMS page "${page.title}"` });
-  revalidatePath("/admin/cms/pages");
-  if (page.path) revalidatePath(page.path);
-  if (page.type === "SERVICE") revalidatePath("/services");
+  afterPageChange({
+    paths: [page.path],
+    type: page.type,
+    wasPublic: page.status === "PUBLISHED",
+    isPublic: false,
+  });
   return NextResponse.json({ ok: true });
 });

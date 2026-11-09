@@ -8,7 +8,7 @@ import JsonLd from "@/components/JsonLd";
 import { readCaseStudies, getCaseStudyBySlug } from "@/lib/case-studies-content";
 import { readSiteContent } from "@/lib/content";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd, caseStudyArticleJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, caseStudyArticleJsonLd, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 import { RelatedContentSection } from "@/components/marketing/RelatedContentSection";
@@ -61,7 +61,7 @@ export async function generateMetadata({
         ? { site: `@${site.twitterSite}`, creator: `@${site.twitterSite}` }
         : {}),
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 

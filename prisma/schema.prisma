@@ -1,6 +1,6 @@
 // Torq Studio — Prisma + MongoDB Atlas
 // Set DATABASE_URL=mongodb+srv://.../YOUR_DB_NAME?retryWrites=true&w=majority
-// Push schema: npx prisma db push   |   Seed CMS data: npm run db:seed:cms
+// Push schema: npx prisma db push  (MongoDB: removed models leave their old collections in place — drop them manually if wanted)
 
 generator client {
   provider = "prisma-client-js"
@@ -12,12 +12,14 @@ datasource db {
 }
 
 // =============================================================================
-// Torq Studio CMS (marketing site) � MongoDB collections
+// Torq Studio CMS (marketing site) — MongoDB collections
 // =============================================================================
 
 // Enums
 // ─────────────────────────────────────────────
 
+/// Drives the default URL prefix (see pathFor in src/lib/cms/pages.ts) and the JSON-LD type a
+/// page emits. Values not offered in the editor are kept so existing documents still deserialize.
 enum PageType {
   HOME
   SERVICE
@@ -40,11 +42,6 @@ enum PageType {
   LANDING
   PROGRAMMATIC
   CUSTOM
-}
-
-enum PageOrigin {
-  MANUAL
-  PROGRAMMATIC
 }
 
 enum WorkflowStatus {
@@ -72,44 +69,6 @@ enum EntityKind {
   GLOSSARY_TERM
 }
 
-enum RelationType {
-  PARENT_OF
-  CHILD_OF
-  RELATED_TO
-  USES_TECH
-  SERVES_INDUSTRY
-  DELIVERS_SOLUTION
-  PRICED_AS
-  COMPARES
-  MENTIONS
-  AUTHORED_BY
-}
-
-enum LinkSlot {
-  RELATED_SERVICES
-  RELATED_SOLUTIONS
-  RELATED_TECHNOLOGIES
-  RELATED_INDUSTRIES
-  RELATED_PRICING
-  RELATED_BLOGS
-  RELATED_CASE_STUDIES
-  RELATED_COMPARISONS
-  RELATED_FAQS
-  RELATED_GUIDES
-  RELATED_GLOSSARY
-}
-
-enum AdminRoleKey {
-  SUPER_ADMIN
-  SEO_MANAGER
-  CONTENT_STRATEGIST
-  CONTENT_WRITER
-  EDITOR
-  DEVELOPER
-  REVIEWER
-  SALES
-}
-
 enum RedirectType {
   PERMANENT_301
   TEMPORARY_302
@@ -121,17 +80,6 @@ enum MediaKind {
   DOCUMENT
   AUDIO
   OTHER
-}
-
-enum ProgrammaticAxis {
-  TECHNOLOGY_INDUSTRY
-  SERVICE_INDUSTRY
-  SERVICE_TECHNOLOGY
-  TECHNOLOGY_SOLUTION
-  PRICING_TECHNOLOGY
-  COMPARISON
-  LOCATION
-  CUSTOM
 }
 
 enum BuyerStage {
@@ -149,80 +97,7 @@ enum SearchIntent {
 }
 
 // ─────────────────────────────────────────────
-// Admin RBAC
-// ─────────────────────────────────────────────
-
-model CmsUser {
-  id           String       @id @default(cuid()) @map("_id")
-  email        String       @unique
-  name         String?
-  passwordHash String?
-  roleKey      AdminRoleKey @default(CONTENT_WRITER)
-  isActive     Boolean      @default(true)
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-
-  transitions   WorkflowEvent[]
-  leadsAssigned Lead[]          @relation("LeadAssignee")
-}
-
-model RolePermission {
-  id         String       @id @default(cuid()) @map("_id")
-  roleKey    AdminRoleKey
-  permission String
-  allowed    Boolean      @default(true)
-
-  @@unique([roleKey, permission])
-}
-
-// ─────────────────────────────────────────────
-// Taxonomy
-// ─────────────────────────────────────────────
-
-model Category {
-  id          String   @id @default(cuid()) @map("_id")
-  slug        String   @unique
-  name        String
-  description String?
-  parentId    String?
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  pageLinks PageCategory[]
-}
-
-model Tag {
-  id        String   @id @default(cuid()) @map("_id")
-  slug      String   @unique
-  name      String
-  createdAt DateTime @default(now())
-
-  pageLinks PageTag[]
-}
-
-model PageCategory {
-  id         String   @id @default(cuid()) @map("_id")
-  pageId     String
-  categoryId String
-  page       Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-
-  @@unique([pageId, categoryId])
-}
-
-model PageTag {
-  id     String @id @default(cuid()) @map("_id")
-  pageId String
-  tagId  String
-  page   Page   @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
-
-  @@unique([pageId, tagId])
-}
-
-// ─────────────────────────────────────────────
-// Core Page + SEO + Brief + Blocks
+// Core Page + SEO + Brief
 // ─────────────────────────────────────────────
 
 model Page {
@@ -231,44 +106,25 @@ model Page {
   path              String         @unique
   title             String
   type              PageType
-  origin            PageOrigin     @default(MANUAL)
   status            WorkflowStatus @default(DRAFT)
   locale            String         @default("en")
   excerpt           String?
-  featuredMediaId   String?
   primaryEntityKind EntityKind?
   primaryEntityId   String?
-  templateId        String?
-  parentPageId      String?
-  sortOrder         Int            @default(0)
-  readingTimeMin    Int?
-  contentScore      Int?
-  revalidateSeconds Int            @default(3600)
   publishedAt       DateTime?
   archivedAt        DateTime?
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
 
-  /// Ordered block instances — validated against BlockType.schemaJson via Zod in app layer
+  /// Ordered block instances — validated with Zod in src/lib/cms/blocks.ts
   blocks Json @default("[]")
-
-  /// Manual related overrides: { [LinkSlot]: string[] pageIds, lockSlots?: string[] }
-  relatedOverrides Json?
 
   seo            SeoMetadata?
   brief          ContentBrief?
-  versions       PageVersion[]
-  categoryLinks  PageCategory[]
-  tagLinks       PageTag[]
-  entityLinks    PageEntity[]
-  linkEdgesOut   InternalLinkEdge[]    @relation("LinkSource")
-  linkEdgesIn    InternalLinkEdge[]    @relation("LinkTarget")
   workflowEvents WorkflowEvent[]
-  template       ProgrammaticTemplate? @relation(fields: [templateId], references: [id])
 
   @@index([status, publishedAt])
   @@index([type, status])
-  @@index([origin, templateId])
   @@index([primaryEntityKind, primaryEntityId])
   @@index([locale, status])
 }
@@ -278,74 +134,37 @@ model SeoMetadata {
   pageId             String   @unique
   metaTitle          String?
   metaDescription    String?
+  /// Absolute URL; set only when this page duplicates another. Pages canonicalised elsewhere are
+  /// left out of the sitemap, llms.txt and IndexNow pings.
   canonical          String?
   robotsIndex        Boolean  @default(true)
   robotsFollow       Boolean  @default(true)
   ogTitle            String?
   ogDescription      String?
-  ogImageId          String?
-  ogType             String   @default("website")
-  twitterCard        String   @default("summary_large_image")
+  /// Social / OG share image (1200×630). Also used as the JSON-LD primaryImageOfPage.
+  ogImageUrl         String?
   twitterTitle       String?
   twitterDescription String?
-  twitterImageId     String?
-  /// Selected schema template keys e.g. ["Service","FAQPage"]
-  schemaKeys         String[] @default([])
-  /// Optional raw JSON-LD array merged after auto builders
+  /// Optional raw JSON-LD object or array, appended after the auto-generated graph.
   jsonLdCustom       Json?
   breadcrumbLabel    String?
   focusKeyword       String?
+  /// Named author for E-E-A-T (Article schema `author`). Falls back to the organisation.
+  authorName         String?
 
   page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
 }
 
 model ContentBrief {
-  id                     String        @id @default(cuid()) @map("_id")
-  pageId                 String        @unique
-  targetKeyword          String?
-  secondaryKeywords      String[]      @default([])
-  searchIntent           SearchIntent?
-  targetAudience         String?
-  buyerStage             BuyerStage?
-  competitorUrls         String[]      @default([])
-  entityList             String[]      @default([])
-  questions              String[]      @default([])
-  faqs                   Json?
-  suggestedInternalLinks String[]      @default([])
-  suggestedExternalLinks String[]      @default([])
-  contentScore           Int?
-  notes                  String?
+  id                String        @id @default(cuid()) @map("_id")
+  pageId            String        @unique
+  targetKeyword     String?
+  secondaryKeywords String[]      @default([])
+  searchIntent      SearchIntent?
+  targetAudience    String?
+  buyerStage        BuyerStage?
 
   page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
-}
-
-model PageVersion {
-  id          String         @id @default(cuid()) @map("_id")
-  pageId      String
-  version     Int
-  snapshot    Json
-  status      WorkflowStatus
-  createdById String?
-  note        String?
-  createdAt   DateTime       @default(now())
-
-  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
-
-  @@unique([pageId, version])
-  @@index([pageId, createdAt])
-}
-
-model BlockType {
-  id           String   @id @default(cuid()) @map("_id")
-  typeKey      String   @unique
-  label        String
-  category     String
-  /// Zod-compatible JSON Schema for props
-  schemaJson   Json
-  defaultProps Json
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
 }
 
 model WorkflowEvent {
@@ -357,15 +176,14 @@ model WorkflowEvent {
   comment    String?
   createdAt  DateTime       @default(now())
 
-  page  Page     @relation(fields: [pageId], references: [id], onDelete: Cascade)
-  actor CmsUser? @relation(fields: [actorId], references: [id])
+  page Page @relation(fields: [pageId], references: [id], onDelete: Cascade)
 
   @@index([pageId, createdAt])
   @@index([toStatus, createdAt])
 }
 
 // ─────────────────────────────────────────────
-// Entities (normalized + polymorphic links)
+// Entities
 // ─────────────────────────────────────────────
 
 // Service/Solution/Industry/Technology are a deliberately unified taxonomy shape — same fields,
@@ -466,34 +284,6 @@ model Technology {
   @@index([parentId])
 }
 
-model EntityRelation {
-  id           String       @id @default(cuid()) @map("_id")
-  fromKind     EntityKind
-  fromId       String
-  toKind       EntityKind
-  toId         String
-  relationType RelationType @default(RELATED_TO)
-  weight       Float        @default(1)
-  metadata     Json?
-  createdAt    DateTime     @default(now())
-
-  @@unique([fromKind, fromId, toKind, toId, relationType])
-  @@index([fromKind, fromId])
-  @@index([toKind, toId])
-}
-
-model PageEntity {
-  id         String     @id @default(cuid()) @map("_id")
-  pageId     String
-  entityKind EntityKind
-  entityId   String
-  isPrimary  Boolean    @default(false)
-  page       Page       @relation(fields: [pageId], references: [id], onDelete: Cascade)
-
-  @@unique([pageId, entityKind, entityId])
-  @@index([entityKind, entityId])
-}
-
 // ─────────────────────────────────────────────
 // Authors / Clients / Testimonials / Case Studies
 // ─────────────────────────────────────────────
@@ -547,7 +337,7 @@ model Faq {
 }
 
 // ─────────────────────────────────────────────
-// Media / Navigation / Redirects / Forms
+// Media / Navigation / Redirects
 // ─────────────────────────────────────────────
 
 model MediaAsset {
@@ -618,110 +408,6 @@ model Redirect {
   updatedAt DateTime     @updatedAt
 }
 
-model Form {
-  id          String   @id @default(cuid()) @map("_id")
-  slug        String   @unique
-  name        String
-  fields      Json
-  successMsg  String?
-  notifyEmail String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  leads Lead[]
-}
-
-model Lead {
-  id         String      @id @default(cuid()) @map("_id")
-  formId     String
-  payload    Json
-  pagePath   String?
-  entityKind EntityKind?
-  entityId   String?
-  source     String?
-  status     String      @default("new")
-  assigneeId String?
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-
-  form     Form     @relation(fields: [formId], references: [id], onDelete: Cascade)
-  assignee CmsUser? @relation("LeadAssignee", fields: [assigneeId], references: [id])
-
-  @@index([createdAt])
-  @@index([status, createdAt])
-}
-
-// ─────────────────────────────────────────────
-// Internal linking + Programmatic SEO
-// ─────────────────────────────────────────────
-
-model InternalLinkEdge {
-  id           String   @id @default(cuid()) @map("_id")
-  sourcePageId String
-  targetPageId String
-  slot         LinkSlot
-  score        Float    @default(0)
-  isOverride   Boolean  @default(false)
-  isLocked     Boolean  @default(false)
-  updatedAt    DateTime @updatedAt
-
-  source Page @relation("LinkSource", fields: [sourcePageId], references: [id], onDelete: Cascade)
-  target Page @relation("LinkTarget", fields: [targetPageId], references: [id], onDelete: Cascade)
-
-  @@unique([sourcePageId, targetPageId, slot])
-  @@index([sourcePageId, slot, score])
-}
-
-model SchemaTemplate {
-  id          String   @id @default(cuid()) @map("_id")
-  key         String   @unique
-  label       String
-  description String?
-  /// JSON-LD template with {{mustache}} placeholders
-  template    Json
-  isActive    Boolean  @default(true)
-  updatedAt   DateTime @updatedAt
-}
-
-model ProgrammaticTemplate {
-  id               String           @id @default(cuid()) @map("_id")
-  key              String           @unique
-  name             String
-  axis             ProgrammaticAxis
-  pathPattern      String
-  titlePattern     String
-  metaTitlePattern String?
-  metaDescPattern  String?
-  blockBlueprint   Json
-  schemaKeys       String[]         @default([])
-  minContentScore  Int              @default(60)
-  isActive         Boolean          @default(true)
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-
-  pages Page[]
-  jobs  ProgrammaticJob[]
-}
-
-model ProgrammaticJob {
-  id           String    @id @default(cuid()) @map("_id")
-  templateId   String
-  status       String    @default("queued")
-  config       Json
-  total        Int       @default(0)
-  createdCount Int       @default(0)
-  skippedCount Int       @default(0)
-  errorCount   Int       @default(0)
-  log          Json?
-  createdAt    DateTime  @default(now())
-  finishedAt   DateTime?
-
-  template ProgrammaticTemplate @relation(fields: [templateId], references: [id])
-
-  @@index([status, createdAt])
-}
-
 model SiteSettings {
   id                 String   @id @default(cuid()) @map("_id")
   key                String   @unique @default("default")
@@ -737,13 +423,15 @@ model SiteSettings {
   twitterTitle       String?
   twitterDescription String?
   socialProfiles     String[] @default([])
-  defaultOgImageId   String?
-  organizationJson   Json?
+  /// Free-form Markdown appended to /llms.txt (positioning notes, preferred citations, etc.).
   llmsTxtExtra       String?
   featureFlags       Json?
   googleSiteVerification String?
   bingSiteVerification   String?
   robotsNoIndex          Boolean  @default(false)
+  /// When true, robots.txt blocks AI *training* crawlers (GPTBot, CCBot, Google-Extended, …)
+  /// while still allowing AI *search/answer* crawlers that cite and link back.
+  blockAiTraining        Boolean  @default(false)
   updatedAt          DateTime @updatedAt
 }
 
@@ -919,6 +607,9 @@ model BrandSettings {
   faviconUrl       String?
   colorPrimary     String?
   colorAccent      String?
+  colorSecondary   String?
+  colorDark        String?
+  radiusScale      String?
   fontHeading      String?
   fontBody         String?
   voiceDescription String?

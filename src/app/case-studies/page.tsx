@@ -5,7 +5,7 @@ import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import { readCaseStudies } from "@/lib/case-studies-content";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd, webPageJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, webPageJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 import { CaseStudiesFilterGrid } from "./CaseStudiesFilterGrid";
 
@@ -17,12 +17,13 @@ export async function generateMetadata(): Promise<Metadata> {
       "How Torq Studio delivers mobile apps, web platforms, AI solutions, and remote engineering teams—real outcomes across fintech, logistics, e-commerce, and B2B SaaS.",
     alternates: { canonical: `${baseUrl}/case-studies` },
     openGraph: {
+      images: [DEFAULT_OG_IMAGE],
       title: "Case studies | Torq Studio",
       description:
         "Deep dives into delivery: architecture, AI in support, platform rebuilds, and API modernisation.",
       url: `${baseUrl}/case-studies`,
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 

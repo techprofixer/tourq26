@@ -26,6 +26,15 @@ export const contentSectionBlockSchema = z.object({
     .optional(),
 });
 
+/** Answer-first "key takeaways" list. Placed near the top of a page, it gives answer engines
+ *  (Google AI Overviews, ChatGPT, Perplexity) short, self-contained statements to quote. */
+export const summaryBlockSchema = z.object({
+  type: z.literal("summary"),
+  id: z.string().min(1),
+  heading: z.string().optional(),
+  items: z.array(z.string().min(1)).min(1),
+});
+
 export const faqBlockSchema = z.object({
   type: z.literal("faq"),
   id: z.string().min(1),
@@ -78,6 +87,7 @@ export const entityGridBlockSchema = z.object({
 
 export const blockSchema = z.discriminatedUnion("type", [
   heroBlockSchema,
+  summaryBlockSchema,
   contentSectionBlockSchema,
   faqBlockSchema,
   ctaBlockSchema,
@@ -88,13 +98,18 @@ export const blockSchema = z.discriminatedUnion("type", [
 export type CmsBlock = z.infer<typeof blockSchema>;
 export type BlockTypeKey = CmsBlock["type"];
 
-export const BLOCK_TYPE_OPTIONS: { type: BlockTypeKey; label: string }[] = [
-  { type: "hero", label: "Hero" },
-  { type: "contentSection", label: "Content section" },
-  { type: "featureGrid", label: "Feature grid" },
-  { type: "entityGrid", label: "Entity grid (catalogue)" },
-  { type: "faq", label: "FAQ" },
-  { type: "cta", label: "CTA" },
+export const BLOCK_TYPE_OPTIONS: { type: BlockTypeKey; label: string; description: string }[] = [
+  { type: "hero", label: "Hero", description: "Page H1, intro line and primary call to action." },
+  {
+    type: "summary",
+    label: "Key takeaways",
+    description: "2–5 quotable answers — what AI Overviews and ChatGPT cite.",
+  },
+  { type: "contentSection", label: "Content section", description: "Heading, rich text and an optional image." },
+  { type: "featureGrid", label: "Feature grid", description: "Cards for capabilities, steps or benefits." },
+  { type: "entityGrid", label: "Catalogue grid", description: "Live cards for services, solutions, industries…" },
+  { type: "faq", label: "FAQ", description: "Questions and answers, emitted as FAQPage schema." },
+  { type: "cta", label: "Call to action", description: "Closing band with buttons." },
 ];
 
 export function createDefaultBlock(type: BlockTypeKey, existingBlocks: CmsBlock[] = []): CmsBlock {
@@ -111,6 +126,16 @@ export function createDefaultBlock(type: BlockTypeKey, existingBlocks: CmsBlock[
         primaryCtaHref: "/contact",
         secondaryCtaLabel: "Case studies",
         secondaryCtaHref: "/case-studies",
+      };
+    case "summary":
+      return {
+        type,
+        id,
+        heading: "Key takeaways",
+        items: [
+          "State the direct answer to the page's main question in one sentence.",
+          "Add a concrete fact, number, or timeframe a reader could quote.",
+        ],
       };
     case "contentSection": {
       const sectionNumber =

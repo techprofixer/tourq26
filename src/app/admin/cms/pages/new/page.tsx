@@ -19,10 +19,10 @@ export default async function AdminCmsNewPage() {
           { label: "CMS Pages", href: "/admin/cms/pages" },
           { label: "New" },
         ]}
-        title="New CMS page"
-        description="Start from blocks. SEO and content brief fields are required before publish for money pages."
+        title="New page"
+        description="Build the page from blocks, then check the SEO tab before publishing."
       />
-      <div className="mt-8">
+      <div className="mt-6">
         <PageEditor
           mode="create"
           siteUrl={site.siteUrl}
@@ -34,13 +34,18 @@ export default async function AdminCmsNewPage() {
             status: "DRAFT",
             path: "",
             excerpt: "",
-            blocks: [createDefaultBlock("hero"), createDefaultBlock("cta")],
+            blocks: [createDefaultBlock("hero"), createDefaultBlock("summary"), createDefaultBlock("cta")],
             seo: {
               metaTitle: "",
               metaDescription: "",
               focusKeyword: "",
               robotsIndex: true,
               robotsFollow: true,
+              canonical: "",
+              ogImageUrl: "",
+              breadcrumbLabel: "",
+              authorName: "",
+              jsonLdCustom: "",
             },
             brief: {
               targetKeyword: "",

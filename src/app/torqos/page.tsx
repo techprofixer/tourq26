@@ -4,7 +4,7 @@ import MarketingHeader from "@/components/MarketingHeader";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { readCaseStudies } from "@/lib/case-studies-content";
 import { readPricingPlans } from "@/lib/pricing-content";
 import { requireMarketingFeature } from "@/lib/require-marketing-feature";
@@ -50,12 +50,13 @@ export async function generateMetadata(): Promise<Metadata> {
       "torqOS unifies your CRM, operations, finances and reporting into one system — so your team stops running the business on spreadsheets and WhatsApp. Book a demo.",
     alternates: { canonical: `${baseUrl}/torqos` },
     openGraph: {
+      images: [DEFAULT_OG_IMAGE],
       title: "torqOS — The Business Operating System for Growing Companies | Torq Studio",
       description:
         "torqOS unifies your CRM, operations, finances and reporting into one system — so your team stops running the business on spreadsheets and WhatsApp. Book a demo.",
       url: `${baseUrl}/torqos`,
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 

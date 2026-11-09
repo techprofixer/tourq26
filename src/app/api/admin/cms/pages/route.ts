@@ -4,7 +4,7 @@ import type { PageType, WorkflowStatus } from "@prisma/client";
 import { withAdmin } from "@/lib/with-admin";
 import { clientErrorMessage, jsonError } from "@/lib/api-response";
 import { parseBlocks } from "@/lib/cms/blocks";
-import { createPage, listPages } from "@/lib/cms/pages";
+import { briefInputSchema, createPage, listPages, seoInputSchema } from "@/lib/cms/pages";
 import { logActivity } from "@/lib/activity-log";
 
 export const GET = withAdmin(async (request: NextRequest) => {
@@ -37,8 +37,8 @@ export const POST = withAdmin(async (request: NextRequest) => {
       status: (body.status as WorkflowStatus) || "DRAFT",
       excerpt: body.excerpt != null ? String(body.excerpt) : null,
       blocks: body.blocks != null ? parseBlocks(body.blocks) : undefined,
-      seo: body.seo as Parameters<typeof createPage>[0]["seo"],
-      brief: body.brief as Parameters<typeof createPage>[0]["brief"],
+      seo: body.seo != null ? seoInputSchema.parse(body.seo) : undefined,
+      brief: body.brief != null ? briefInputSchema.parse(body.brief) : undefined,
     });
     void logActivity({ entityType: "cms-page", entityId: page.id, action: "created", summary: `Created CMS page "${page.title}"` });
     revalidatePath("/admin/cms/pages");

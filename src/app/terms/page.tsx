@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import JsonLd from "@/components/JsonLd";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 
 export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = await getSiteUrl();
@@ -12,12 +12,13 @@ export async function generateMetadata(): Promise<Metadata> {
       "Torq Studio terms of service. Terms governing use of our website and services. Intellectual property and contact.",
     alternates: { canonical: `${baseUrl}/terms` },
     openGraph: {
+      images: [DEFAULT_OG_IMAGE],
       title: "Terms of Service | Torq Studio",
       description:
         "Terms governing use of our website and services. Use of website, services, and intellectual property.",
       url: `${baseUrl}/terms`,
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 

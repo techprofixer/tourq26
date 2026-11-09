@@ -6,7 +6,7 @@ import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import { publishedBlogPosts, readBlogPosts } from "@/lib/content";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd } from "@/lib/seo";
+import { breadcrumbListJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { BlogPostCard } from "@/components/blog/BlogPostCard";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 
@@ -18,12 +18,13 @@ export async function generateMetadata(): Promise<Metadata> {
       "Insights on mobile app development, web development, AI solutions, and remote IT teams. Tips and guides from Torq Studio to help you scale smarter.",
     alternates: { canonical: `${baseUrl}/blog` },
     openGraph: {
+      images: [DEFAULT_OG_IMAGE],
       title: "Blog | Torq Studio – Mobile, Web, AI & Remote IT",
       description:
         "Guides and insights on choosing development partners, AI for business, and building with remote teams.",
       url: `${baseUrl}/blog`,
     },
-    robots: { index: true, follow: true },
+    robots: INDEXABLE_ROBOTS,
   };
 }
 
