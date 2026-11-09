@@ -29,6 +29,41 @@ export type MediaAssetDto = {
 
 type MediaKind = "IMAGE" | "VIDEO" | "DOCUMENT" | "AUDIO" | "OTHER";
 
+/** Upload allowlist (MIME → permitted extensions). HTML, scripts and anything unknown are rejected. */
+const ALLOWED_UPLOAD_TYPES: Record<string, string[]> = {
+  "image/jpeg": ["jpg", "jpeg"],
+  "image/png": ["png"],
+  "image/webp": ["webp"],
+  "image/gif": ["gif"],
+  "image/avif": ["avif"],
+  "image/x-icon": ["ico"],
+  "image/vnd.microsoft.icon": ["ico"],
+  "image/svg+xml": ["svg"],
+  "video/mp4": ["mp4"],
+  "video/webm": ["webm"],
+  "application/pdf": ["pdf"],
+};
+
+/**
+ * Returns an error message when `file` must not be stored, else null. SVG can carry script,
+ * so it is only accepted when it goes to Cloudinary (served from its own origin), never to
+ * our own `/uploads`.
+ */
+export function validateMediaUpload(file: File): string | null {
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const allowedExts = ALLOWED_UPLOAD_TYPES[file.type];
+  if (!allowedExts || !allowedExts.includes(ext)) {
+    return "Unsupported file type. Allowed: JPG, PNG, WebP, GIF, AVIF, ICO, SVG, MP4, WebM, PDF.";
+  }
+  if (file.type === "image/svg+xml" && !isCloudinaryConfigured()) {
+    return "SVG uploads require Cloudinary to be configured.";
+  }
+  if (!isCloudinaryConfigured() && process.env.NODE_ENV === "production") {
+    return "Media storage is not configured. Set the CLOUDINARY_* environment variables.";
+  }
+  return null;
+}
+
 function inferKind(mimeType: string): MediaKind {
   if (mimeType.startsWith("image/")) return "IMAGE";
   if (mimeType.startsWith("video/")) return "VIDEO";

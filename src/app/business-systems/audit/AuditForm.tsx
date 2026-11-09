@@ -12,7 +12,7 @@ import {
 } from "@/lib/business-systems/options";
 import { MAX_MESSAGE_LENGTH } from "@/lib/business-systems/schema";
 import { SingleSelectGrid, MultiSelectGrid } from "./OptionGrid";
-import { readStoredUtmParams } from "@/lib/business-systems/utm";
+import { readStoredUtmParams } from "@/lib/utm";
 import { track, type AnalyticsEvent } from "@/lib/analytics";
 import { trackPixelEvent } from "@/lib/meta-pixel";
 

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { isAdmin } from "@/lib/auth";
 import { readTechNewsPosts } from "@/lib/tech-news-content";
-import { TechNewsListClient } from "./TechNewsListClient";
+import { PostListClient } from "@/components/admin/PostListClient";
 import { AdminPageHeader } from "../AdminPageHeader";
 
 type SearchParams = Promise<{ status?: string }>;
@@ -34,7 +34,7 @@ export default async function AdminTechNewsPage({
           </Link>
         }
       />
-      <TechNewsListClient posts={posts} initialFilter={status} />
+      <PostListClient kind="tech-news" posts={posts} initialFilter={status} />
     </div>
   );
 }

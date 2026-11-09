@@ -2,7 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { readTechNewsPosts } from "@/lib/tech-news-content";
 import { readSiteContent } from "@/lib/content";
-import { TechNewsPostForm } from "../../TechNewsPostForm";
+import { PostEditorForm } from "@/components/admin/PostEditorForm";
 import { AdminPageHeader } from "../../../AdminPageHeader";
 
 export default async function EditTechNewsPostPage({
@@ -30,7 +30,7 @@ export default async function EditTechNewsPostPage({
         description="Save changes anytime — drafts stay private, publishes go live immediately."
       />
       <div className="mt-6">
-        <TechNewsPostForm key={post.slug} post={post} siteUrl={site.siteUrl} siteName={site.siteName} />
+        <PostEditorForm kind="tech-news" key={post.slug} post={post} siteUrl={site.siteUrl} siteName={site.siteName} />
       </div>
     </div>
   );

@@ -2,17 +2,7 @@ import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { readContactSubmissions } from "@/lib/content";
 import { AdminPageHeader } from "../AdminPageHeader";
-
-function formatDate(iso: string) {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  } catch {
-    return iso;
-  }
-}
+import { formatDateTime } from "@/lib/date-format";
 
 export default async function AdminContactPage() {
   const ok = await isAdmin();
@@ -65,7 +55,7 @@ export default async function AdminContactPage() {
                   className="shrink-0 font-mono text-xs uppercase tracking-wide text-muted-foreground"
                   dateTime={s.createdAt}
                 >
-                  {formatDate(s.createdAt)}
+                  {formatDateTime(s.createdAt)}
                 </time>
               </li>
             ))}

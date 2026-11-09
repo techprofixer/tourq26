@@ -24,7 +24,7 @@ type FlagsCache = { flags: Record<FeatureFlagKey, boolean>; expiresAt: number } 
  */
 const globalForFlags = globalThis as unknown as { featureFlagsCache?: FlagsCache };
 
-/** Reads through a short in-memory cache — this runs on every request via middleware. */
+/** Reads through a short in-memory cache — this runs on every request via the proxy (src/proxy.ts). */
 export async function getResolvedFeatureFlags(): Promise<Record<FeatureFlagKey, boolean>> {
   const cache = globalForFlags.featureFlagsCache;
   if (cache && cache.expiresAt > Date.now()) return cache.flags;

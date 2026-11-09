@@ -1,35 +1,19 @@
 import type { BlogPost, BlogStatus } from "@/lib/content";
+import { slugify } from "@/lib/slug";
+import { stripHtmlToText } from "@/lib/seo-generate";
 
 const STATUSES = new Set<BlogStatus>(["draft", "published"]);
 
 /** Strip HTML to plain text and count words. */
 export function countWords(html: string | undefined): number {
-  if (!html) return 0;
-  const plain = String(html)
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&[a-z]+;/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!plain) return 0;
-  return plain.split(" ").filter(Boolean).length;
+  const plain = stripHtmlToText(html ?? "");
+  return plain ? plain.split(" ").length : 0;
 }
 
 /** Words → "N min read" using a 220 wpm baseline. */
 export function readTimeFromWordCount(words: number): string {
   const minutes = Math.max(1, Math.round(words / 220));
   return `${minutes} min read`;
-}
-
-/** URL-safe slug. Preserves only `[a-z0-9-]`, collapses hyphens. */
-export function slugify(value: string): string {
-  return (value || "")
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/['"`]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 80);
 }
 
 /** Sanitises the incoming JSON body to a strict `BlogPost` shape (server side). */

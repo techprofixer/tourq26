@@ -2,14 +2,7 @@ import type { Metadata } from "next";
 import type { PageWithSeo } from "@/lib/cms/pages";
 import { getPageBlocks } from "@/lib/cms/pages";
 import { faqPageJsonLd, webPageJsonLd, breadcrumbListJsonLd, serviceJsonLd } from "@/lib/seo";
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+import { stripHtmlToText } from "@/lib/seo-generate";
 
 export function buildPageMetadata(
   page: PageWithSeo,
@@ -91,7 +84,7 @@ export function buildPageJsonLd(page: PageWithSeo, siteUrl: string, siteName: st
       faqPageJsonLd(
         faqBlock.items.map((item) => ({
           question: item.question,
-          answer: stripHtml(item.answer),
+          answer: stripHtmlToText(item.answer),
         })),
       ),
     );

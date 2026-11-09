@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import MarketingHeader from "@/components/MarketingHeader";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
-import { BlockRenderer } from "@/components/cms/BlockRenderer";
+import { CmsPageView, findPublishedPage } from "@/components/cms/CmsEntityPage";
 import { getServicePage, servicePages } from "@/data/services-content";
 import { publishedBlogPosts, readBlogPosts, readSiteContent } from "@/lib/content";
 import { getSiteUrl } from "@/lib/site-url";
@@ -12,8 +12,8 @@ import { breadcrumbListJsonLd, faqPageJsonLd, serviceJsonLd, webPageJsonLd } fro
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 import { ServiceSectionNav } from "@/components/marketing/ServiceSectionNav";
 import { RelatedContentSection } from "@/components/marketing/RelatedContentSection";
-import { getPublishedPageByPath, getPageBlocks, slugify } from "@/lib/cms/pages";
-import { buildPageJsonLd, buildPageMetadata } from "@/lib/cms/metadata";
+import { slugify } from "@/lib/slug";
+import { buildPageMetadata } from "@/lib/cms/metadata";
 import { getRelatedContentGroups } from "@/lib/related-links";
 
 // Safety net: on-demand revalidation covers CMS/site-setting edits, but this bounds
@@ -33,12 +33,8 @@ export async function generateMetadata({
   const site = await readSiteContent();
   const baseUrl = site.siteUrl.replace(/\/$/, "");
 
-  try {
-    const cms = await getPublishedPageByPath(`/services/${slug}`);
-    if (cms) return buildPageMetadata(cms, baseUrl);
-  } catch {
-    /* DB unavailable — fall back */
-  }
+  const cms = await findPublishedPage(`/services/${slug}`);
+  if (cms) return buildPageMetadata(cms, baseUrl);
 
   const page = getServicePage(slug);
   if (!page) return { title: "Service not found", robots: { index: false, follow: false } };
@@ -62,30 +58,8 @@ export default async function ServiceDetailPage({
 }) {
   const { slug } = await params;
 
-  try {
-    const cms = await getPublishedPageByPath(`/services/${slug}`);
-    if (cms) {
-      const [siteUrl, site] = await Promise.all([getSiteUrl(), readSiteContent()]);
-      const schemas = buildPageJsonLd(cms, siteUrl, site.siteName);
-      const blocks = getPageBlocks(cms);
-      const relatedGroups = await getRelatedContentGroups({ path: cms.path });
-      return (
-        <div className="min-h-screen bg-background">
-          {schemas.map((data, i) => (
-            <JsonLd key={i} data={data} />
-          ))}
-          <MarketingHeader />
-          <main>
-            <BlockRenderer blocks={blocks} />
-            <RelatedContentSection groups={relatedGroups} />
-          </main>
-          <Footer />
-        </div>
-      );
-    }
-  } catch {
-    /* fall through to static */
-  }
+  const cms = await findPublishedPage(`/services/${slug}`);
+  if (cms) return <CmsPageView page={cms} />;
 
   const page = getServicePage(slug);
   if (!page) notFound();

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { buildCsp } from "./src/lib/csp";
 
 const nextConfig: NextConfig = {
   // pdf-parse pulls in pdfjs-dist, which resolves a worker script path at runtime for a
@@ -7,7 +8,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["pdf-parse", "pdfjs-dist"],
   // Static, infra-level redirects only (host canonicalization, permanent path renames baked into
   // the deploy). Content-team-managed redirects belong in the DB-backed Redirect model instead —
-  // see src/lib/redirects.ts + the enforcement point in src/middleware.ts.
+  // see src/lib/redirects.ts + the enforcement point in src/proxy.ts.
   async redirects() {
     return [
       // Canonical host (matches content `siteUrl`). Requires `www.torqstudio.com` as a domain in Vercel with valid SSL.
@@ -16,16 +17,6 @@ const nextConfig: NextConfig = {
         has: [{ type: "host", value: "www.torqstudio.com" }],
         destination: "https://torqstudio.com/:path*",
         permanent: true,
-      },
-      {
-        source: "/hub/candidate/nodejs-interview",
-        destination: "/hub/candidate/interview/nodejs",
-        permanent: false,
-      },
-      {
-        source: "/hub/candidate/nodejs-interview/:path*",
-        destination: "/hub/candidate/interview/nodejs/:path*",
-        permanent: false,
       },
     ];
   },
@@ -62,6 +53,18 @@ const nextConfig: NextConfig = {
           // Safe to set unconditionally — the site only ever serves over HTTPS (see the host
           // canonicalization redirect above). 2 years, applies to subdomains, eligible for preload.
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
+          { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+        ],
+      },
+      {
+        // Origin-allowlist CSP for public (static/ISR) pages. /admin gets a stricter per-request
+        // nonce policy from src/proxy.ts instead — see src/lib/csp.ts for the full rationale.
+        source: "/((?!_next/|admin).*)",
+        headers: [
+          {
+            key: "Content-Security-Policy",
+            value: buildCsp({ isDev: process.env.NODE_ENV === "development" }),
+          },
         ],
       },
     ];

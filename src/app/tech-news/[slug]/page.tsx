@@ -11,6 +11,7 @@ import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
 import { getSiteUrl } from "@/lib/site-url";
 import { readSiteContent } from "@/lib/content";
 import { breadcrumbListJsonLd, techNewsArticleJsonLd } from "@/lib/seo";
+import { formatLongDate } from "@/lib/date-format";
 
 // Safety net: on-demand revalidation covers CMS edits, but this bounds staleness
 // to an hour even if a revalidatePath call is ever missed.
@@ -59,14 +60,6 @@ export async function generateMetadata({
     },
     robots: { index: true, follow: true },
   };
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
 }
 
 export default async function TechNewsArticlePage({
@@ -122,7 +115,7 @@ export default async function TechNewsArticlePage({
               {article.category}
             </p>
             <time className="mt-2 block text-sm text-muted-foreground" dateTime={article.date}>
-              {formatDate(article.date)} · {article.readTime}
+              {formatLongDate(article.date)} · {article.readTime}
             </time>
             <h1 className="mt-4 font-display text-3xl font-bold leading-tight text-foreground sm:text-4xl">
               {article.title}

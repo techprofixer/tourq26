@@ -13,6 +13,7 @@ import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 import { RelatedContentSection } from "@/components/marketing/RelatedContentSection";
 import { getRelatedContentGroups } from "@/lib/related-links";
+import { formatLongDate } from "@/lib/date-format";
 
 // Safety net: on-demand revalidation covers CMS/site-setting edits, but this bounds
 // staleness to an hour even if a revalidatePath call is ever missed.
@@ -62,14 +63,6 @@ export async function generateMetadata({
     },
     robots: { index: true, follow: true },
   };
-}
-
-function formatDate(dateStr: string) {
-  return new Date(dateStr).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
 }
 
 export default async function CaseStudyDetailPage({
@@ -126,7 +119,7 @@ export default async function CaseStudyDetailPage({
                 </p>
                 <div className="mt-6 flex flex-wrap items-center gap-4">
                   <time className="mono-label text-white/65" dateTime={study.date}>
-                    {formatDate(study.date).toUpperCase()}
+                    {formatLongDate(study.date).toUpperCase()}
                   </time>
                   <span className="mono-label text-white/45" aria-hidden>·</span>
                   <span className="mono-label text-white/65">

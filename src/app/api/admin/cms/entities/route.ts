@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { Prisma, type EntityKind } from "@prisma/client";
 import { withAdmin } from "@/lib/with-admin";
+import { clientErrorMessage } from "@/lib/api-response";
 import {
   createEntity,
   deleteEntity,
@@ -21,7 +22,7 @@ function isCrudKind(kind: unknown): kind is CrudEntityKind {
 
 function duplicateSlugMessage(e: unknown, fallback: string): string {
   if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") return "Slug already exists";
-  return e instanceof Error ? e.message : fallback;
+  return clientErrorMessage(e, fallback, "cms-entities");
 }
 
 const HUB_PATH: Record<CrudEntityKind, string> = {

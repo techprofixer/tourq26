@@ -2,17 +2,7 @@ import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { listChatQueryLog } from "@/lib/content";
 import { AdminPageHeader } from "../AdminPageHeader";
-
-function formatDate(iso: string) {
-  try {
-    return new Date(iso).toLocaleString(undefined, {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  } catch {
-    return iso;
-  }
-}
+import { formatDateTime } from "@/lib/date-format";
 
 export default async function AdminChatLogsPage() {
   const ok = await isAdmin();
@@ -56,7 +46,7 @@ export default async function AdminChatLogsPage() {
                   className="shrink-0 font-mono text-xs uppercase tracking-wide text-muted-foreground"
                   dateTime={l.createdAt}
                 >
-                  {formatDate(l.createdAt)}
+                  {formatDateTime(l.createdAt)}
                 </time>
               </li>
             ))}

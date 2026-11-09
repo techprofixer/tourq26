@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import type { WorkflowStatus } from "@prisma/client";
 import { withAdmin } from "@/lib/with-admin";
+import { clientErrorMessage, jsonError } from "@/lib/api-response";
 import { parseBlocks } from "@/lib/cms/blocks";
 import {
   getPageById,
@@ -80,8 +81,7 @@ export const PATCH = withAdmin(async (request: NextRequest, ctx: Ctx) => {
     revalidatePath("/admin/cms/pages");
     return NextResponse.json(page);
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Failed to update page";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return jsonError(400, clientErrorMessage(e, "Failed to update page", "cms-pages"));
   }
 });
 
