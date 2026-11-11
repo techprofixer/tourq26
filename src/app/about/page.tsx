@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+
+
 import Link from "next/link";
 import MarketingHeader from "@/components/MarketingHeader";
 import Footer from "@/components/Footer";
