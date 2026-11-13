@@ -606,7 +606,7 @@ export function HomeContentForm({ initialData }: { initialData: HomeContent }) {
                   <AiGenerateButton<{ title: string; description: string }>
                     task="itemCopy"
                     variant="inline"
-                    context={{ theme: item.eyebrow || data.whyUsHeading || "why choose this studio", kind: "whyUs" }}
+                    context={{ theme: item.eyebrow || data.whyUsHeading || "why choose this studio", kind: "why-choose-us" }}
                     onResult={({ title, description }) => updateWhyUsItem(i, { title, description })}
                   />
                   <ReorderButtons

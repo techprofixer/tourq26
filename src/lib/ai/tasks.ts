@@ -1,7 +1,21 @@
 import { z } from "zod";
-import { TITLE_MAX, DESC_MAX } from "@/lib/seo-generate";
+import { TITLE_MAX, DESC_MAX, clampAtWord } from "@/lib/seo-generate";
 
 const HOUSE_VOICE = `You are a principal SEO content strategist and copywriter for a software studio's marketing site and admin CMS. Write in a confident, concrete, no-fluff voice: specific outcomes over vague adjectives, active voice, no filler like "in today's fast-paced world". Optimize for search intent and readability: match the likely intent behind the focus keyword or topic, work the primary keyword and its natural variants in early and organically (never keyword-stuff), favor short sentences and scannable structure over dense paragraphs, and write for a human reader first — the SEO benefit follows from genuinely answering the query well. Never invent statistics, client names, or claims that aren't given in the context — if the context lacks a detail, write around it rather than fabricating one.`;
+
+/** Label of the "target length" control on long-form generation. Shared with the modal so the
+ *  server can read the requested length back out of the brief and size the output budget. */
+export const TARGET_WORDS_LABEL = "Target length (words)";
+
+const LONG_FORM_BASE_TOKENS = 2600;
+const LONG_FORM_MAX_TOKENS = 8000;
+
+/** ~2.2 tokens per word covers the prose plus its HTML tags; the base budget handles ≤ ~1,000 words. */
+function longFormTokenBudget(brief: string): number {
+  const match = brief.match(/Target length \(words\):\s*(\d+)/);
+  const words = match ? Number(match[1]) : 0;
+  return Math.min(LONG_FORM_MAX_TOKENS, Math.max(LONG_FORM_BASE_TOKENS, Math.round(words * 2.2) + 400));
+}
 
 export const TASK_LABELS: Record<string, string> = {
   seoMetaPair: "SEO title & description",
@@ -38,6 +52,17 @@ function ctx(context: Record<string, unknown>, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
+/** Same as `ctx`, but an empty value reads as "(none given)" instead of leaving a dangling label. */
+function ctxOrNone(context: Record<string, unknown>, key: string, max = 3000): string {
+  return ctx(context, key).trim().slice(0, max) || "(none given)";
+}
+
+/** "Don't repeat the sibling cards / questions" line — empty when the item has no siblings. */
+function avoidRepeating(context: Record<string, unknown>): string {
+  const existing = ctx(context, "existing").trim();
+  return existing ? `\nAlready on the page — write something different from these: ${existing.slice(0, 800)}` : "";
+}
+
 /** Matches zod's `safeParse` structurally, without depending on zod's (invariant) generic types. */
 type ParsableSchema = {
   safeParse(data: unknown): { success: true; data: Record<string, unknown> } | { success: false };
@@ -52,6 +77,8 @@ export type TaskDef =
       /** Fixed output-format contract, always appended server-side, never shown to the admin. */
       responseContract: string;
       maxOutputTokens?: number;
+      /** Output budget derived from the (admin-edited) brief; wins over `maxOutputTokens`. */
+      maxOutputTokensFor?(brief: string): number;
     }
   | {
       mode: "object";
@@ -60,6 +87,8 @@ export type TaskDef =
       buildBrief(context: Record<string, unknown>): string;
       responseContract: string;
       maxOutputTokens?: number;
+      /** Enforces limits the model can't be trusted to count (e.g. character caps). */
+      postProcess?(result: Record<string, unknown>): Record<string, unknown>;
     };
 
 export type TaskName =
@@ -89,24 +118,31 @@ export const TASKS: Record<TaskName, TaskDef> = {
       metaDescription: z.string(),
     }),
     buildBrief: (context) =>
-      `Write SEO meta for this content.\nTitle: ${ctx(context, "title")}\nFocus keyword: ${ctx(context, "focusKeyword") || "(none given)"}\nContent: ${ctx(context, "bodyText").slice(0, 3000)}`,
-    responseContract: `Return JSON: { "metaTitle": string (<= ${TITLE_MAX} chars, includes the focus keyword naturally if one is given), "metaDescription": string (<= ${DESC_MAX} chars, promises a concrete outcome) }.`,
+      `Write SEO meta for this content.\nTitle: ${ctx(context, "title")}\nFocus keyword: ${ctx(context, "focusKeyword") || "(none given)"}\nContent: ${ctxOrNone(context, "bodyText")}`,
+    responseContract: `Return JSON: { "metaTitle": string (<= ${TITLE_MAX} chars, includes the focus keyword naturally if one is given, no site name suffix), "metaDescription": string (<= ${DESC_MAX} chars, promises a concrete outcome) }.`,
+    // Local models overshoot character limits routinely — clamp instead of trusting the count.
+    postProcess: (r) => ({
+      ...r,
+      metaTitle: clampAtWord(String(r.metaTitle ?? ""), TITLE_MAX),
+      metaDescription: clampAtWord(String(r.metaDescription ?? ""), DESC_MAX),
+    }),
   },
   excerpt: {
     mode: "text",
     system: HOUSE_VOICE,
     buildBrief: (context) =>
-      `Write a one- or two-sentence teaser excerpt (used on cards/listing pages, aim for ~${DESC_MAX} characters) for:\nTitle: ${ctx(context, "title")}\nContent: ${ctx(context, "bodyText").slice(0, 3000)}`,
+      `Write a one- or two-sentence teaser excerpt (used on cards/listing pages, aim for ~${DESC_MAX} characters) for:\nTitle: ${ctx(context, "title")}\nContent: ${ctxOrNone(context, "bodyText")}`,
     responseContract: `Return ONLY the excerpt text, no quotes, no preamble.`,
     maxOutputTokens: 200,
   },
   longFormBody: {
     mode: "text",
-    system: `${HOUSE_VOICE}\nOutput clean HTML using only <h2>, <h3>, <p>, <ul>, <li>, <strong>, <em>, <blockquote>, and <a> tags. Never include an <h1> — the page title already renders as the H1. Open with the takeaway, not a throat-clearing intro. Write at least 3-4 substantial paragraphs with section headings — a single short paragraph is not acceptable output for this task. If the brief specifies a paragraph count, target word count, a primary or secondary keyword, or things to avoid, treat those as hard requirements, not suggestions: hit the paragraph count exactly, work the primary keyword in naturally within the first paragraph and a few more times throughout, weave in secondary keywords where they fit naturally, and never include anything listed under "Avoid". A target word count is a floor, not a ceiling — if you're tempted to stop short of it, add another concrete example, detail, or elaboration to each paragraph instead of wrapping up early; running noticeably under the target is a bigger failure than running slightly over.`,
+    system: `${HOUSE_VOICE}\nOutput clean HTML using only <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <em>, <blockquote>, and <a> tags. Never include an <h1> — the page title already renders as the H1. Open with the takeaway, not a throat-clearing intro. Write at least 3-4 substantial paragraphs with section headings — a single short paragraph is not acceptable output for this task. If the brief specifies a paragraph count, target word count, a primary or secondary keyword, or things to avoid, treat those as hard requirements, not suggestions: hit the paragraph count exactly, work the primary keyword in naturally within the first paragraph and a few more times throughout, weave in secondary keywords where they fit naturally, and never include anything listed under "Avoid". A target word count is a floor, not a ceiling — if you're tempted to stop short of it, add another concrete example, detail, or elaboration to each paragraph instead of wrapping up early; running noticeably under the target is a bigger failure than running slightly over.`,
     buildBrief: (context) =>
-      `Write the full body copy for a ${ctx(context, "contentType") || "page"} titled "${ctx(context, "title")}".\nBrief: ${ctx(context, "brief").slice(0, 3000)}`,
-    responseContract: `Return ONLY the HTML body content (no <html>/<head>/<body> wrapper).`,
-    maxOutputTokens: 2600,
+      `Write the full body copy for a ${ctx(context, "contentType") || "page"} titled "${ctx(context, "title")}".\nBrief: ${ctxOrNone(context, "brief")}`,
+    responseContract: `Return ONLY the HTML body content (no <html>/<head>/<body> wrapper, no markdown, no code fences).`,
+    maxOutputTokens: LONG_FORM_BASE_TOKENS,
+    maxOutputTokensFor: longFormTokenBudget,
   },
   heroCopy: {
     mode: "object",
@@ -129,7 +165,7 @@ export const TASKS: Record<TaskName, TaskDef> = {
       primaryCtaLabel: z.string(),
     }),
     buildBrief: (context) =>
-      `Write a closing call-to-action section.\nPurpose: ${ctx(context, "purpose")}\nAudience: ${ctx(context, "audience") || "a prospective client"}`,
+      `Write a closing call-to-action section.\nPurpose: ${ctx(context, "purpose") || "get the visitor to take the next step"}\nAudience: ${ctx(context, "audience") || "a prospective client"}`,
     responseContract: `Return JSON: { "heading": string (short, direct), "body": string (write exactly 2 to 4 complete sentences as one short paragraph — a single sentence is never acceptable here, expand with a concrete benefit or next step if needed), "primaryCtaLabel": string (2-4 word button label, verb-first) }.`,
   },
   itemCopy: {
@@ -140,7 +176,7 @@ export const TASKS: Record<TaskName, TaskDef> = {
       description: z.string(),
     }),
     buildBrief: (context) =>
-      `Write one ${ctx(context, "kind") || "feature"} card for the theme: ${ctx(context, "theme")}.`,
+      `Write one ${ctx(context, "kind") || "feature"} card for the theme: ${ctxOrNone(context, "theme")}.${avoidRepeating(context)}`,
     responseContract: `Return JSON: { "title": string (2-5 words), "description": string (one sentence, ~15-25 words, concrete outcome not adjectives) }.`,
   },
   faqItem: {
@@ -151,14 +187,14 @@ export const TASKS: Record<TaskName, TaskDef> = {
       answer: z.string(),
     }),
     buildBrief: (context) =>
-      `Write one FAQ entry for a page about: ${ctx(context, "topic")}.\nPage context: ${ctx(context, "pageContext").slice(0, 1500)}`,
+      `Write one FAQ entry for a page about: ${ctxOrNone(context, "topic")}.\nPage context: ${ctxOrNone(context, "pageContext", 1500)}${avoidRepeating(context)}`,
     responseContract: `Return JSON: { "question": string (phrased as a real visitor would ask it), "answer": string (HTML, 2-4 sentences, direct answer first) }.`,
   },
   shortCopy: {
     mode: "text",
     system: HOUSE_VOICE,
     buildBrief: (context) =>
-      `Write short copy for: ${ctx(context, "purpose")}.\nSite context: ${ctx(context, "siteContext") || "(none given)"}`,
+      `Write short copy for: ${ctx(context, "purpose")}.\nCurrent text (improve on it, keep any facts it states): ${ctx(context, "siteContext") || "(none yet)"}`,
     responseContract: `Return ONLY the copy text, no quotes, no preamble. 1-2 sentences.`,
     maxOutputTokens: 150,
   },
@@ -180,7 +216,7 @@ export const TASKS: Record<TaskName, TaskDef> = {
       keywords: z.array(z.string()),
     }),
     buildBrief: (context) =>
-      `Suggest 5-8 relevant SEO keywords/tags for:\nTitle: ${ctx(context, "title")}\nContent: ${ctx(context, "bodyText").slice(0, 3000)}`,
+      `Suggest 5-8 ${ctx(context, "what") || "relevant SEO keywords/tags"} for:\nTitle: ${ctx(context, "title")}\nContent: ${ctxOrNone(context, "bodyText")}`,
     responseContract: `Return JSON: { "keywords": string[] } — short (1-3 word) phrases, no duplicates, no hashtags.`,
   },
   brandVoiceDraft: {

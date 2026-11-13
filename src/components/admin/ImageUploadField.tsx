@@ -3,11 +3,20 @@
 import { useRef, useState } from "react";
 import { Spinner } from "@/components/Spinner";
 import { ADMIN_INPUT_CLASS } from "@/components/admin/form-styles";
+import { MediaPickerDialog } from "@/components/admin/MediaPickerDialog";
+import type { MediaAssetDto } from "@/lib/media";
+
+/** Alt text + title for the image, edited right under the URL field. */
+export type ImageMeta = { alt: string; title: string };
 
 /**
  * Image field usable everywhere a raw image URL is stored: paste a URL, drag & drop a file, or
- * click Upload to pick one from disk. Uploads go through the shared media library
- * (/api/admin/media) so every uploaded asset also shows up in Admin → Media.
+ * click Upload to pick one from disk, or Library to reuse an image that's already uploaded.
+ * Uploads go through the shared media library (/api/admin/media — Cloudinary when configured)
+ * so every uploaded asset also shows up in Admin → Media.
+ *
+ * Pass `meta` to also edit the image's alt text and title. `onChange` receives the media
+ * asset when the URL came from an upload or the library, so callers can reuse its saved alt/title.
  */
 export function ImageUploadField({
   label,
@@ -17,10 +26,14 @@ export function ImageUploadField({
   accept = "image/*",
   helpText,
   previewClassName = "mt-2 h-20 w-auto rounded-md border border-border bg-surface/40 object-contain",
+  meta,
+  onMetaChange,
 }: {
   label?: string;
   value: string;
-  onChange: (url: string) => void;
+  onChange: (url: string, asset?: MediaAssetDto) => void;
+  meta?: ImageMeta;
+  onMetaChange?: (meta: ImageMeta) => void;
   placeholder?: string;
   accept?: string;
   helpText?: string;
@@ -30,6 +43,7 @@ export function ImageUploadField({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   const upload = async (file: File) => {
     setError("");
@@ -43,7 +57,7 @@ export function ImageUploadField({
       setError(data.error || "Upload failed");
       return;
     }
-    onChange(data.url as string);
+    onChange(data.url as string, data as MediaAssetDto);
   };
 
   const handleFiles = (files: FileList | null) => {
@@ -95,17 +109,53 @@ export function ImageUploadField({
           {uploading ? <Spinner className="h-4 w-4" /> : null}
           {uploading ? "Uploading…" : "Upload"}
         </button>
+        <button type="button" onClick={() => setLibraryOpen(true)} className="btn-base btn-outline shrink-0">
+          Library
+        </button>
       </div>
+      <MediaPickerDialog
+        open={libraryOpen}
+        onClose={() => setLibraryOpen(false)}
+        onPick={(asset) => {
+          setLibraryOpen(false);
+          setError("");
+          onChange(asset.url, asset);
+        }}
+      />
       {helpText ? <p className="mt-1 text-xs text-muted-foreground">{helpText}</p> : null}
       {error ? <p className="mt-1 text-xs text-[color:var(--app-destructive)]">{error}</p> : null}
       {value ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={value} alt="" className={previewClassName} />
+        <img src={value} alt={meta?.alt ?? ""} title={meta?.title || undefined} className={previewClassName} />
       ) : (
         <p className="mt-2 text-xs text-muted-foreground">
-          Drag & drop an image, paste a URL, or click Upload to choose a file from your device.
+          Drag & drop an image, paste a URL, click Upload to choose a file, or pick one from the Library.
         </p>
       )}
+      {meta && onMetaChange ? (
+        <div className="mt-3 grid gap-3">
+          <label className="block text-sm">
+            <span className="mono-label text-muted-foreground">Alt text</span>
+            <input
+              type="text"
+              value={meta.alt}
+              onChange={(e) => onMetaChange({ ...meta, alt: e.target.value })}
+              placeholder="Describe the image for screen readers and search"
+              className={`${ADMIN_INPUT_CLASS} placeholder:text-muted-foreground`}
+            />
+          </label>
+          <label className="block text-sm">
+            <span className="mono-label text-muted-foreground">Image title</span>
+            <input
+              type="text"
+              value={meta.title}
+              onChange={(e) => onMetaChange({ ...meta, title: e.target.value })}
+              placeholder="Optional — shown as a tooltip on hover"
+              className={`${ADMIN_INPUT_CLASS} placeholder:text-muted-foreground`}
+            />
+          </label>
+        </div>
+      ) : null}
     </div>
   );
 }

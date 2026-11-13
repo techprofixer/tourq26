@@ -79,6 +79,7 @@ function SectionImage({ image }: { image: NonNullable<ContentSectionBlock["image
       <Image
         src={image.url}
         alt={image.alt || ""}
+        title={image.title || undefined}
         fill
         className="object-cover"
         sizes="(max-width: 1024px) 100vw, 680px"
@@ -322,6 +323,7 @@ export function BlockRenderer({
                         <Image
                           src={block.image.url}
                           alt={block.image.alt || ""}
+                          title={block.image.title || undefined}
                           fill
                           className="object-cover"
                           sizes="(max-width: 1024px) 100vw, 50vw"

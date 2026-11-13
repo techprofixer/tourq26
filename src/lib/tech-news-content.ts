@@ -141,7 +141,7 @@ export async function writeTechNewsPosts(posts: TechNewsPost[]): Promise<void> {
           body: p.body,
           authorName: p.authorName,
           status: p.status ?? "published",
-          coverImage: p.coverImage,
+          coverImage: p.coverImage ?? null,
           focusKeyword: p.focusKeyword,
           wordCount: p.wordCount,
         },

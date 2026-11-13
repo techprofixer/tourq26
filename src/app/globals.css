@@ -840,6 +840,12 @@ textarea:focus-visible {
 .blog-article a:hover {
   text-decoration-color: var(--app-fg);
 }
+.blog-article img,
+.admin-quill-editor .ql-editor img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-sm);
+}
 .blog-article strong {
   color: var(--app-fg);
   font-weight: 500;

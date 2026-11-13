@@ -1,5 +1,7 @@
 import { cache } from "react";
+import type { Prisma } from "@prisma/client";
 import { prisma, withDbTimeout, writeSingletonSetting, SINGLETON_KEY } from "@/lib/db";
+import { parseBlocks, type CmsBlock } from "@/lib/cms/blocks";
 
 /** Deduped per-request: readSiteContent() and readFeatureFlagsDocument() both read this same
  *  row — React's cache() collapses repeat calls within one render into a single DB query. */
@@ -29,6 +31,12 @@ export type BlogPost = {
   status?: BlogStatus;
   /** Public cover image URL (used as OG image + card visual when set). */
   coverImage?: string;
+  /** Alt text for the cover image (falls back to the post title). */
+  coverAlt?: string;
+  /** `title` attribute (hover tooltip) for the cover image. */
+  coverTitle?: string;
+  /** Optional content blocks (key takeaways, FAQ, CTA…) rendered after the body. */
+  blocks?: CmsBlock[];
   /** Topic tags — also serialised into `keywords` + `articleSection`. */
   tags?: string[];
   /** Primary keyword used for content-score signals (not rendered). */
@@ -129,9 +137,12 @@ function toBlogPost(row: {
   authorName: string | null;
   status: string;
   coverImage: string | null;
+  coverAlt: string | null;
+  coverTitle: string | null;
   tags: string[];
   focusKeyword: string | null;
   wordCount: number | null;
+  blocks: unknown;
 }): BlogPost {
   return {
     slug: row.slug,
@@ -146,9 +157,12 @@ function toBlogPost(row: {
     authorName: row.authorName ?? undefined,
     status: (row.status as BlogStatus) ?? "published",
     coverImage: row.coverImage ?? undefined,
+    coverAlt: row.coverAlt ?? undefined,
+    coverTitle: row.coverTitle ?? undefined,
     tags: row.tags,
     focusKeyword: row.focusKeyword ?? undefined,
     wordCount: row.wordCount ?? undefined,
+    blocks: parseBlocks(row.blocks),
   };
 }
 
@@ -181,9 +195,12 @@ export async function writeBlogPosts(posts: BlogPost[]): Promise<void> {
           authorName: p.authorName,
           status: p.status ?? "published",
           coverImage: p.coverImage,
+          coverAlt: p.coverAlt,
+          coverTitle: p.coverTitle,
           tags: p.tags ?? [],
           focusKeyword: p.focusKeyword,
           wordCount: p.wordCount,
+          blocks: (p.blocks ?? []) as unknown as Prisma.InputJsonValue,
         },
         update: {
           title: p.title,
@@ -196,10 +213,14 @@ export async function writeBlogPosts(posts: BlogPost[]): Promise<void> {
           body: p.body,
           authorName: p.authorName,
           status: p.status ?? "published",
-          coverImage: p.coverImage,
+          coverImage: p.coverImage ?? null,
+          // `?? null` so clearing the field in the editor actually clears it (undefined = "leave as is").
+          coverAlt: p.coverAlt ?? null,
+          coverTitle: p.coverTitle ?? null,
           tags: p.tags ?? [],
           focusKeyword: p.focusKeyword,
           wordCount: p.wordCount,
+          blocks: (p.blocks ?? []) as unknown as Prisma.InputJsonValue,
         },
       }),
     ),

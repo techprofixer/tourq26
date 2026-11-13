@@ -227,7 +227,11 @@ export function CaseStudyForm({
               task="keywordSuggestions"
               variant="inline"
               label="Suggest"
-              context={{ title: data.title, bodyText: [data.challenge, data.outcome, data.description].filter(Boolean).join(". ") }}
+              context={{
+                title: data.title,
+                bodyText: [data.challenge, data.outcome, data.description].filter(Boolean).join(". "),
+                what: 'services the studio delivered in this engagement (service names such as "Mobile app development" or "API integration", not search keywords)',
+              }}
               onResult={({ keywords }) => update("services", Array.from(new Set([...data.services, ...keywords])))}
               disabled={!data.title.trim()}
             />
@@ -267,7 +271,7 @@ export function CaseStudyForm({
             task="longFormBody"
             context={{
               title: data.title,
-              contentType: "caseStudy",
+              contentType: "case study",
               brief: [
                 data.client && `Client: ${data.client}`,
                 data.industry && `Industry: ${data.industry}`,

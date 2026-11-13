@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useAiGenerate } from "@/lib/ai/useAiGenerate";
-import { TASK_LABELS, TASK_FIELDS, type TaskName } from "@/lib/ai/tasks";
+import { TASK_LABELS, TASK_FIELDS, TARGET_WORDS_LABEL, type TaskName } from "@/lib/ai/tasks";
 import { Spinner } from "@/components/Spinner";
 
 type Variant = "secondary" | "inline" | "outline";
@@ -25,6 +25,50 @@ export type ExtraField = {
   placeholder?: string;
   helpText?: string;
 };
+
+/** Keyword / length / avoid controls for the `longFormBody` task. */
+export function longFormExtraFields({
+  primaryKeyword = "",
+  secondaryKeywords = "",
+  paragraphs = "4",
+  words = "500",
+}: {
+  primaryKeyword?: string;
+  secondaryKeywords?: string;
+  paragraphs?: string;
+  words?: string;
+}): ExtraField[] {
+  return [
+    {
+      key: "primaryKeyword",
+      label: "Primary keyword",
+      type: "text",
+      defaultValue: primaryKeyword,
+      placeholder: "e.g. CRM development",
+    },
+    {
+      key: "secondaryKeywords",
+      label: "Secondary keywords",
+      type: "text",
+      defaultValue: secondaryKeywords,
+      placeholder: "comma-separated",
+    },
+    { key: "paragraphCount", label: "Paragraphs", type: "number", defaultValue: paragraphs },
+    {
+      key: "targetWords",
+      label: TARGET_WORDS_LABEL,
+      type: "number",
+      defaultValue: words,
+      helpText: "Up to about 3,000 words. Longer pieces take a few minutes on a local model.",
+    },
+    {
+      key: "avoid",
+      label: "Avoid",
+      type: "textarea",
+      placeholder: "e.g. don't mention pricing, avoid buzzwords like \"revolutionary\", no fabricated stats",
+    },
+  ];
+}
 
 function formatExtraFields(fields: ExtraField[], values: Record<string, string>): string {
   return fields
