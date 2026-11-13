@@ -50,7 +50,8 @@ export function normaliseTechNewsInput(
     body,
     authorName: optStr(raw.authorName) ?? prev?.authorName,
     status,
-    coverImage: optStr(raw.coverImage) ?? prev?.coverImage,
+    // An explicit empty string removes the cover; only a missing field keeps the old one.
+    coverImage: typeof raw.coverImage === "string" ? raw.coverImage.trim() || undefined : prev?.coverImage,
     focusKeyword: optStr(raw.focusKeyword) ?? prev?.focusKeyword,
     wordCount,
   };

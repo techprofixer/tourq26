@@ -449,9 +449,13 @@ model BlogPost {
   authorName   String?
   status       String   @default("published")
   coverImage   String?
+  coverAlt     String?
+  coverTitle   String?
   tags         String[] @default([])
   focusKeyword String?
   wordCount    Int?
+  /// Optional content blocks rendered after the body — validated with Zod in src/lib/cms/blocks.ts
+  blocks       Json?
 }
 
 model ContactSubmission {

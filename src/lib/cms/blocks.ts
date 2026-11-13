@@ -22,6 +22,8 @@ export const contentSectionBlockSchema = z.object({
     .object({
       url: z.string().min(1),
       alt: z.string().optional(),
+      /** Tooltip / `title` attribute. */
+      title: z.string().optional(),
     })
     .optional(),
 });
@@ -110,6 +112,16 @@ export const BLOCK_TYPE_OPTIONS: { type: BlockTypeKey; label: string; descriptio
   { type: "entityGrid", label: "Catalogue grid", description: "Live cards for services, solutions, industries…" },
   { type: "faq", label: "FAQ", description: "Questions and answers, emitted as FAQPage schema." },
   { type: "cta", label: "Call to action", description: "Closing band with buttons." },
+];
+
+/** Blocks offered in the blog post editor — no hero, because a post already renders its own H1. */
+export const BLOG_BLOCK_TYPES: readonly BlockTypeKey[] = [
+  "summary",
+  "contentSection",
+  "featureGrid",
+  "entityGrid",
+  "faq",
+  "cta",
 ];
 
 export function createDefaultBlock(type: BlockTypeKey, existingBlocks: CmsBlock[] = []): CmsBlock {

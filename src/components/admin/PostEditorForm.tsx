@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { BlogPost } from "@/lib/content";
@@ -15,19 +15,22 @@ import { BlogPostPreview } from "@/components/admin/BlogPostPreview";
 import { SerpPreview } from "@/components/admin/SerpPreview";
 import { SocialPreview } from "@/components/admin/SocialPreview";
 import { TagInput } from "@/components/admin/TagInput";
-import { AiGenerateButton } from "@/components/admin/AiGenerateButton";
+import { AiGenerateButton, longFormExtraFields } from "@/components/admin/AiGenerateButton";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { generateSeoFromContent, stripHtmlToText } from "@/lib/seo-generate";
 import { countWords, readTimeFromWordCount } from "@/lib/blog-server";
 import { slugify } from "@/lib/slug";
 import { Card, Row, SidebarField, StatusPill } from "@/components/admin/EditorPanels";
+import { BlockListEditor } from "@/components/admin/cms/BlockListEditor";
+import { BLOG_BLOCK_TYPES, parseBlocks, type CmsBlock } from "@/lib/cms/blocks";
+import { extractTextFromCmsBlocks } from "@/lib/seo-generate";
 
 type PostStatus = "draft" | "published";
 
 /**
  * Editor for article-style content (blog posts and tech-news stories). Everything that differs
- * between kinds lives in `POST_KINDS`; kind-specific fields (blog tags, tech-news dek + category)
- * are toggled by `kind`.
+ * between kinds lives in `POST_KINDS`; kind-specific fields (blog tags + content blocks + cover
+ * alt/title, tech-news dek + category) are toggled by `kind`.
  */
 export type PostEditorProps =
   | { kind: "blog"; post?: BlogPost; siteUrl: string; siteName: string }
@@ -102,6 +105,9 @@ export function PostEditorForm(props: PostEditorProps) {
   const [focusKeyword, setFocusKeyword] = useState(post?.focusKeyword ?? savedDraft?.focusKeyword ?? "");
   // Blog-only
   const [tags, setTags] = useState<string[]>(post?.tags ?? savedDraft?.tags ?? []);
+  const [blocks, setBlocks] = useState<CmsBlock[]>(post?.blocks ?? parseBlocks(savedDraft?.blocks));
+  const [coverAlt, setCoverAlt] = useState(post?.coverAlt ?? savedDraft?.coverAlt ?? "");
+  const [coverTitle, setCoverTitle] = useState(post?.coverTitle ?? savedDraft?.coverTitle ?? "");
   // Tech-news-only
   const [dek, setDek] = useState(post?.dek ?? savedDraft?.dek ?? "");
   const [category, setCategory] = useState<TechNewsCategory>(post?.category ?? savedDraft?.category ?? "AI & ML");
@@ -111,12 +117,16 @@ export function PostEditorForm(props: PostEditorProps) {
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
 
-  const wordCount = useMemo(() => countWords(body), [body]);
+  const wordCount = useMemo(() => countWords(body, blocks), [body, blocks]);
   const effectiveSlug = slugTouched ? slug : slugify(title);
   const effectiveReadTime = readTimeTouched ? readTime : readTimeFromWordCount(wordCount);
-  const kindFields = useMemo(() => (isBlog ? { tags } : { dek, category }), [isBlog, tags, dek, category]);
-  const bodyText = stripHtmlToText(body);
-  const noContent = !title.trim() && !body.trim();
+  const kindFields = useMemo(
+    () => (isBlog ? { tags, blocks, coverAlt, coverTitle } : { dek, category }),
+    [isBlog, tags, blocks, coverAlt, coverTitle, dek, category],
+  );
+  // Body + content blocks — what the SEO / excerpt / tag AI prompts read.
+  const bodyText = [stripHtmlToText(body), extractTextFromCmsBlocks(blocks)].filter(Boolean).join(" ");
+  const noContent = !title.trim() && !bodyText;
 
   function generateSeo() {
     const generated = generateSeoFromContent({
@@ -164,76 +174,54 @@ export function PostEditorForm(props: PostEditorProps) {
     }
   }, [isNew, title, description, excerpt, seoTitle, body, effectiveSlug, coverImage, focusKeyword, kindFields, draftKey]);
 
-  const submit = useCallback(
-    async (nextStatus: PostStatus) => {
-      setError("");
-      setSuccessMsg("");
-      setSaving(true);
-      setPendingAction(isNew ? (nextStatus === "draft" ? "draft" : "publish") : "save");
-      const res = await fetch(post?.slug ? `${cfg.apiBase}/${encodeURIComponent(post.slug)}` : cfg.apiBase, {
-        method: post ? "PUT" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          slug: effectiveSlug || undefined,
-          title,
-          seoTitle: seoTitle.trim() || undefined,
-          description,
-          excerpt: excerpt.trim() || undefined,
-          date,
-          readTime: effectiveReadTime,
-          body,
-          authorName: authorName.trim() || undefined,
-          status: nextStatus,
-          coverImage: coverImage.trim() || undefined,
-          focusKeyword: focusKeyword.trim() || undefined,
-          ...kindFields,
-        }),
-      }).catch(() => null);
-      const data = res ? await res.json().catch(() => ({})) : {};
-      setSaving(false);
-      setPendingAction(null);
-      if (!res?.ok) {
-        setError(data.error || "Save failed");
-        return;
-      }
-      setStatus(nextStatus);
-      try {
-        localStorage.removeItem(draftKey);
-      } catch {
-        /* noop */
-      }
-      if (isNew && data?.slug) {
-        router.push(`${cfg.adminBase}/${encodeURIComponent(data.slug)}/edit`);
-      } else {
-        setSuccessMsg(nextStatus === "published" ? "Saved and published." : "Draft saved.");
-      }
-      router.refresh();
-    },
-    [
-      isNew,
-      post,
-      cfg,
-      effectiveSlug,
-      title,
-      seoTitle,
-      description,
-      excerpt,
-      date,
-      effectiveReadTime,
-      body,
-      authorName,
-      coverImage,
-      focusKeyword,
-      kindFields,
-      draftKey,
-      router,
-    ],
-  );
+  const submit = async (nextStatus: PostStatus) => {
+    setError("");
+    setSuccessMsg("");
+    setSaving(true);
+    setPendingAction(isNew ? (nextStatus === "draft" ? "draft" : "publish") : "save");
+    const res = await fetch(post?.slug ? `${cfg.apiBase}/${encodeURIComponent(post.slug)}` : cfg.apiBase, {
+      method: post ? "PUT" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug: effectiveSlug || undefined,
+        title,
+        seoTitle: seoTitle.trim() || undefined,
+        description,
+        excerpt: excerpt.trim() || undefined,
+        date,
+        readTime: effectiveReadTime,
+        body,
+        authorName: authorName.trim() || undefined,
+        status: nextStatus,
+        coverImage: coverImage.trim(),
+        focusKeyword: focusKeyword.trim() || undefined,
+        ...kindFields,
+      }),
+    }).catch(() => null);
+    const data = res ? await res.json().catch(() => ({})) : {};
+    setSaving(false);
+    setPendingAction(null);
+    if (!res?.ok) {
+      setError(data.error || "Save failed");
+      return;
+    }
+    setStatus(nextStatus);
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      /* noop */
+    }
+    if (isNew && data?.slug) {
+      router.push(`${cfg.adminBase}/${encodeURIComponent(data.slug)}/edit`);
+    } else {
+      setSuccessMsg(nextStatus === "published" ? "Saved and published." : "Draft saved.");
+    }
+    router.refresh();
+  };
 
   const bodyBrief = [
     description,
     !isBlog && dek,
-    focusKeyword && `Focus keyword: ${focusKeyword}`,
     isBlog ? tags.length > 0 && `Tags: ${tags.join(", ")}` : `Category: ${category}`,
   ]
     .filter(Boolean)
@@ -360,9 +348,14 @@ export function PostEditorForm(props: PostEditorProps) {
                   <AiGenerateButton<string>
                     task="longFormBody"
                     variant="inline"
-                    context={{ title, contentType: kind, brief: bodyBrief }}
+                    context={{ title, contentType: isBlog ? "blog post" : "tech news story", brief: bodyBrief }}
                     onResult={setBody}
                     disabled={!title.trim()}
+                    extraFields={longFormExtraFields({
+                      primaryKeyword: focusKeyword,
+                      paragraphs: "8",
+                      words: "1000",
+                    })}
                   />
                 </div>
                 <div className="mt-1">
@@ -374,6 +367,24 @@ export function PostEditorForm(props: PostEditorProps) {
                   />
                 </div>
               </Field>
+
+              {isBlog ? (
+                <div>
+                  <label className="mono-label text-muted-foreground">CONTENT BLOCKS</label>
+                  <p className="mb-2 mt-1.5 text-[12.5px] text-muted-foreground">
+                    Optional. Add key takeaways, extra sections with images, feature cards, an FAQ or a call
+                    to action — they render after the body, in this order.
+                  </p>
+                  <BlockListEditor
+                    blocks={blocks}
+                    setBlocks={setBlocks}
+                    allowedTypes={BLOG_BLOCK_TYPES}
+                    pageTitle={title}
+                    pageContext={description || excerpt}
+                    focusKeyword={focusKeyword}
+                  />
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -385,6 +396,8 @@ export function PostEditorForm(props: PostEditorProps) {
               readTime={effectiveReadTime}
               authorName={authorName.trim()}
               bodyHtml={body}
+              coverImage={coverImage.trim() ? { url: coverImage.trim(), alt: coverAlt, title: coverTitle } : undefined}
+              blocks={blocks}
             />
           ) : null}
 
@@ -576,7 +589,17 @@ export function PostEditorForm(props: PostEditorProps) {
             <SidebarField label="COVER IMAGE">
               <ImageUploadField
                 value={coverImage}
-                onChange={setCoverImage}
+                onChange={(url, asset) => {
+                  setCoverImage(url);
+                  // Reuse the alt/title already saved on the media-library asset.
+                  if (asset?.alt) setCoverAlt(asset.alt);
+                  if (asset?.title) setCoverTitle(asset.title);
+                }}
+                meta={isBlog ? { alt: coverAlt, title: coverTitle } : undefined}
+                onMetaChange={({ alt, title: t }) => {
+                  setCoverAlt(alt);
+                  setCoverTitle(t);
+                }}
                 placeholder="https://…/cover.jpg"
                 previewClassName="mt-2 aspect-[1200/630] w-full rounded-[var(--radius-sm)] border border-border object-cover"
               />

@@ -12,6 +12,10 @@ const MODEL = process.env.OLLAMA_CONTENT_MODEL ?? "qwen2.5:14b-instruct";
  *  idle models after its `keep_alive` window). Generation itself is fast once loaded, so the
  *  timeout needs to cover a worst-case cold load, not just inference time. */
 const TIMEOUT_MS = 120_000;
+/** Long outputs need longer than the base timeout: allow ~50ms per requested token (≈20 tok/s). */
+function timeoutFor(maxOutputTokens: number): number {
+  return Math.max(TIMEOUT_MS, maxOutputTokens * 50);
+}
 
 /** Ollama unreachable — server down, wrong port, etc. */
 export class AiUnavailableError extends Error {}
@@ -20,6 +24,13 @@ export class AiGenerationError extends Error {}
 
 function chatModel() {
   return createOpenAI({ baseURL: BASE_URL, apiKey: "ollama" }).chat(MODEL);
+}
+
+/** Chat models often wrap output in a markdown fence (```html … ```) even when told not to —
+ *  left in, the fence would be saved into the field as literal text. */
+export function stripCodeFence(text: string): string {
+  const match = text.trim().match(/^```[a-zA-Z]*\s*\n([\s\S]*?)\n?```$/);
+  return (match ? match[1] : text).trim();
 }
 
 function isConnectionError(err: unknown): boolean {
@@ -44,15 +55,16 @@ export async function generateFieldContent(params: {
   prompt: string;
   maxOutputTokens?: number;
 }): Promise<string> {
+  const maxOutputTokens = params.maxOutputTokens ?? 700;
   try {
     const { text } = await generateText({
       model: chatModel(),
       system: params.system,
       prompt: params.prompt,
-      maxOutputTokens: params.maxOutputTokens ?? 700,
-      abortSignal: AbortSignal.timeout(TIMEOUT_MS),
+      maxOutputTokens,
+      abortSignal: AbortSignal.timeout(timeoutFor(maxOutputTokens)),
     });
-    return text.trim();
+    return stripCodeFence(text);
   } catch (err) {
     if (isModelNotFoundError(err)) {
       throw new AiGenerationError(
@@ -90,6 +102,8 @@ export async function generateFieldObject<T>(params: {
   prompt: string;
   schema: ParsableSchema<T>;
   maxOutputTokens?: number;
+  /** Description of the expected JSON shape, so the repair pass can fix wrong keys, not just syntax. */
+  shapeHint?: string;
 }): Promise<T> {
   const system = `${params.system}\nRespond with ONLY a single valid JSON object. No markdown, no commentary, no code fences.`;
   const raw = await generateFieldContent({
@@ -110,7 +124,9 @@ export async function generateFieldObject<T>(params: {
   if (!result || !result.success) {
     const repaired = await generateFieldContent({
       system: "You fix malformed JSON. Respond with ONLY the corrected, valid JSON object.",
-      prompt: `This JSON is malformed or has the wrong shape. Fix it and return ONLY valid JSON:\n${raw}`,
+      prompt: `This JSON is malformed or has the wrong shape. Fix it and return ONLY valid JSON${
+        params.shapeHint ? ` matching this spec — ${params.shapeHint}` : ""
+      }:\n${raw}`,
       maxOutputTokens: params.maxOutputTokens,
     });
     result = attempt(repaired);

@@ -1,12 +1,13 @@
 import type { BlogPost, BlogStatus } from "@/lib/content";
 import { slugify } from "@/lib/slug";
-import { stripHtmlToText } from "@/lib/seo-generate";
+import { extractTextFromCmsBlocks, stripHtmlToText } from "@/lib/seo-generate";
+import { parseBlocks, type CmsBlock } from "@/lib/cms/blocks";
 
 const STATUSES = new Set<BlogStatus>(["draft", "published"]);
 
-/** Strip HTML to plain text and count words. */
-export function countWords(html: string | undefined): number {
-  const plain = stripHtmlToText(html ?? "");
+/** Strip HTML to plain text and count words — content blocks, when given, count too. */
+export function countWords(html: string | undefined, blocks: CmsBlock[] = []): number {
+  const plain = [stripHtmlToText(html ?? ""), extractTextFromCmsBlocks(blocks)].filter(Boolean).join(" ");
   return plain ? plain.split(" ").length : 0;
 }
 
@@ -43,8 +44,13 @@ export function normaliseBlogInput(
     ? (statusRaw as BlogStatus)
     : "published";
 
+  /** Unlike `optStr`, an explicit empty string clears the field instead of keeping the old value. */
+  const clearableStr = (v: unknown, fallback: string | undefined): string | undefined =>
+    typeof v === "string" ? v.trim() || undefined : fallback;
+
   const body = str(raw.body, prev?.body ?? "");
-  const wordCount = countWords(body);
+  const blocks = Array.isArray(raw.blocks) ? parseBlocks(raw.blocks) : prev?.blocks;
+  const wordCount = countWords(body, blocks);
   const readTime =
     optStr(raw.readTime) ?? (wordCount > 0 ? readTimeFromWordCount(wordCount) : prev?.readTime ?? "5 min read");
 
@@ -63,7 +69,10 @@ export function normaliseBlogInput(
     body,
     authorName: optStr(raw.authorName) ?? prev?.authorName,
     status,
-    coverImage: optStr(raw.coverImage) ?? prev?.coverImage,
+    coverImage: clearableStr(raw.coverImage, prev?.coverImage),
+    coverAlt: clearableStr(raw.coverAlt, prev?.coverAlt),
+    coverTitle: clearableStr(raw.coverTitle, prev?.coverTitle),
+    blocks,
     tags,
     focusKeyword: optStr(raw.focusKeyword) ?? prev?.focusKeyword,
     wordCount,

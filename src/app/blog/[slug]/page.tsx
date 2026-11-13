@@ -8,7 +8,9 @@ import JsonLd from "@/components/JsonLd";
 import { publishedBlogPosts, readBlogPosts, readSiteContent } from "@/lib/content";
 import { getSiteUrl } from "@/lib/site-url";
 import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
-import { blogPostingJsonLd, breadcrumbListJsonLd } from "@/lib/seo";
+import { blogPostingJsonLd, breadcrumbListJsonLd, faqPageJsonLd } from "@/lib/seo";
+import { stripHtmlToText } from "@/lib/seo-generate";
+import { BlockRenderer } from "@/components/cms/BlockRenderer";
 import { BlogRelatedPosts } from "@/components/blog/BlogRelatedPosts";
 import {
   authorInitials,
@@ -114,10 +116,38 @@ export default async function BlogPostPage({
     { name: post.title, path: `/blog/${post.slug}` },
   ]);
 
+  // Optional content blocks. A post already has its own hero/H1, so a hero block is never rendered.
+  const blocks = (post.blocks ?? []).filter((b) => b.type !== "hero");
+  const faqItems = blocks.flatMap((b) => (b.type === "faq" ? b.items : []));
+
+  const afterArticle = (
+    <>
+      <SupportingProseSection
+        id="blog-torq-context"
+        eyebrow="ABOUT TORQ STUDIO"
+        className="border-x-0 mt-16"
+        heading="Engineering partner for product teams."
+        paragraphs={[
+          "Torq Studio helps product and engineering organisations ship mobile apps, web platforms, APIs, and AI-assisted workflows with senior ownership end to end. We combine hands-on delivery with advisory work when you need estimates, architecture review, or vendor diligence before committing to a build.",
+          "If this article raised questions about your own roadmap — procurement, security, team shape, or launch strategy — you can explore our services overview, read anonymised case studies, or start with a free consultation. We reply to thoughtful enquiries within one business day.",
+        ]}
+      />
+
+      <BlogRelatedPosts posts={related} />
+    </>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       <JsonLd data={articleLd} />
       <JsonLd data={breadcrumbLd} />
+      {faqItems.length > 0 ? (
+        <JsonLd
+          data={faqPageJsonLd(
+            faqItems.map((item) => ({ question: item.question, answer: stripHtmlToText(item.answer) })),
+          )}
+        />
+      ) : null}
       <MarketingHeader />
       <main>
         <article>
@@ -195,7 +225,8 @@ export default async function BlogPostPage({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={post.coverImage}
-                  alt={post.title}
+                  alt={post.coverAlt?.trim() || post.title}
+                  title={post.coverTitle?.trim() || undefined}
                   className="aspect-[1200/630] w-full rounded-[var(--radius-sm)] border border-hairline object-cover"
                 />
               </div>
@@ -222,20 +253,21 @@ export default async function BlogPostPage({
                 />
               </div>
 
-              <SupportingProseSection
-                id="blog-torq-context"
-                eyebrow="ABOUT TORQ STUDIO"
-                className="border-x-0 mt-16"
-                heading="Engineering partner for product teams."
-                paragraphs={[
-                  "Torq Studio helps product and engineering organisations ship mobile apps, web platforms, APIs, and AI-assisted workflows with senior ownership end to end. We combine hands-on delivery with advisory work when you need estimates, architecture review, or vendor diligence before committing to a build.",
-                  "If this article raised questions about your own roadmap — procurement, security, team shape, or launch strategy — you can explore our services overview, read anonymised case studies, or start with a free consultation. We reply to thoughtful enquiries within one business day.",
-                ]}
-              />
-
-              <BlogRelatedPosts posts={related} />
+              {blocks.length === 0 ? afterArticle : null}
             </div>
           </section>
+
+          {/* Content blocks sit between the body and the "about / related" footer of the article. */}
+          {blocks.length > 0 ? (
+            <>
+              <BlockRenderer blocks={blocks} />
+              <section className="band-light border-t border-hairline">
+                <div className="mx-auto w-full max-w-[1280px] px-4 pb-16 sm:px-6 sm:pb-20 lg:px-8 lg:pb-[80px]">
+                  {afterArticle}
+                </div>
+              </section>
+            </>
+          ) : null}
 
           <RelatedContentSection groups={relatedGroups} />
 

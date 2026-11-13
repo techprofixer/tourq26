@@ -40,13 +40,14 @@ export const POST = withAdmin(async (request: NextRequest) => {
         prompt,
         schema: def.schema,
         maxOutputTokens: def.maxOutputTokens,
+        shapeHint: def.responseContract,
       });
-      return NextResponse.json({ result });
+      return NextResponse.json({ result: def.postProcess ? def.postProcess(result) : result });
     }
     const result = await generateFieldContent({
       system,
       prompt,
-      maxOutputTokens: def.maxOutputTokens,
+      maxOutputTokens: def.maxOutputTokensFor?.(brief) ?? def.maxOutputTokens,
     });
     return NextResponse.json({ result });
   } catch (err) {
