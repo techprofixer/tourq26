@@ -121,7 +121,18 @@ export default async function RootLayout({
     name: site.siteName,
     url: siteUrl,
     description: site.defaultDescription,
-    areaServed: "Worldwide",
+    areaServed: ["AE", "SA", "QA", "KW", "DE", "GB", "NL", "IN"].map((code) => ({
+      "@type": "Country",
+      name: code,
+    })),
+    address: { "@type": "PostalAddress", addressLocality: "Mumbai", addressCountry: "IN" },
+    knowsAbout: [
+      "Mobile app development",
+      "Web development",
+      "AI integration",
+      "Custom CRM development",
+      "Technical consulting",
+    ],
     logo: brand.logoUrl || `${siteUrl}/opengraph-image`,
     ...(site.sameAs?.length ? { sameAs: site.sameAs } : {}),
   };

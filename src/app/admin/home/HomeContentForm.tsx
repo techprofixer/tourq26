@@ -476,6 +476,18 @@ export function HomeContentForm({ initialData }: { initialData: HomeContent }) {
           <Field label="CTA label" value={data.offerBannerCtaLabel} onChange={(v) => update("offerBannerCtaLabel", v)} />
           <Field label="CTA link" value={data.offerBannerCtaHref} onChange={(v) => update("offerBannerCtaHref", v)} />
         </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground/90">Last day to show (optional)</label>
+          <input
+            type="date"
+            value={data.offerBannerEndsAt}
+            onChange={(e) => update("offerBannerEndsAt", e.target.value)}
+            className={inputClass}
+          />
+          <p className="mt-1 text-xs text-foreground/60">
+            The banner hides itself after this day (UTC). Leave blank for no expiry — set one for any dated offer.
+          </p>
+        </div>
         {data.offerBannerText.trim() ? (
           <div
             className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-md px-4 py-2.5 text-center text-[13px] font-medium text-white"
