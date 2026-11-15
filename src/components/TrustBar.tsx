@@ -17,7 +17,7 @@ const stats: {
   { value: "24h", label: "Average first-reply window", tint: "neutral" },
 ];
 
-const regions = ["Americas", "Europe", "Middle East", "Asia", "Africa"];
+const regions = ["Mumbai", "Pune", "Bengaluru", "Delhi NCR", "Hyderabad", "Chennai"];
 
 function tintClass(t: (typeof stats)[number]["tint"]) {
   switch (t) {
@@ -59,7 +59,7 @@ export default function TrustBar() {
         </ul>
 
         <div className="mt-12 flex flex-col items-start gap-4 border-t border-hairline pt-8 sm:flex-row sm:items-center sm:justify-between">
-          <p className="mono-eyebrow text-muted-foreground">TRUSTED IN</p>
+          <p className="mono-eyebrow text-muted-foreground">SERVING</p>
           <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 text-[14px] tracking-tight text-foreground/85">
             {regions.map((region) => (
               <li key={region}>{region}</li>

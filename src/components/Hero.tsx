@@ -103,7 +103,7 @@ export default function Hero({
             )}
             <div className="mt-5 flex flex-wrap items-center gap-6 text-[12px] text-white/50">
               <span className="mono-eyebrow">SHIP · OPERATE · ADVISE</span>
-              <span className="hidden sm:inline">India · MENA · EU overlap</span>
+              <span className="hidden sm:inline">Serving businesses across India</span>
             </div>
           </div>
         </div>

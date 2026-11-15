@@ -66,7 +66,7 @@ export const SEED_LOCATIONS: SeedEntity[] = [
   {
     slug: "software-development-company-india",
     name: "India",
-    summary: "Software development delivered from India, for clients worldwide.",
+    summary: "Software development delivered from India, for Indian businesses.",
   },
   {
     slug: "software-development-company-mumbai",

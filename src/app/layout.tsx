@@ -70,7 +70,7 @@ export async function generateMetadata(): Promise<Metadata> {
       : {}),
     openGraph: {
       type: "website",
-      locale: "en_US",
+      locale: "en_IN",
       url: siteUrl,
       siteName: site.siteName,
       title: site.ogTitle,
@@ -121,10 +121,7 @@ export default async function RootLayout({
     name: site.siteName,
     url: siteUrl,
     description: site.defaultDescription,
-    areaServed: ["AE", "SA", "QA", "KW", "DE", "GB", "NL", "IN"].map((code) => ({
-      "@type": "Country",
-      name: code,
-    })),
+    areaServed: { "@type": "Country", name: "India" },
     address: { "@type": "PostalAddress", addressLocality: "Mumbai", addressCountry: "IN" },
     knowsAbout: [
       "Mobile app development",
@@ -145,7 +142,7 @@ export default async function RootLayout({
     url: siteUrl,
     description: site.defaultDescription,
     publisher: { "@id": organizationId(siteUrl) },
-    inLanguage: "en-US",
+    inLanguage: "en-IN",
   };
 
   return (

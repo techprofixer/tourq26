@@ -268,13 +268,13 @@ function getDefaultSiteContent(): SiteContent {
     siteUrl: "https://torqstudio.com",
     defaultTitle: "Torq Studio | Senior Mobile, Web & AI Engineers",
     defaultDescription:
-      "Mumbai-based senior engineers building mobile apps, web platforms, CRMs and AI for companies in the Middle East and Europe. Direct collaboration and honest scoping.",
+      "Mumbai-based senior engineers building mobile apps, web platforms, CRMs and AI for businesses across India. Direct collaboration and honest scoping.",
     titleTemplate: "%s | Torq Studio",
     keywords: [
       "mobile app development company",
-      "software development India",
-      "app development UAE",
-      "app development Saudi Arabia",
+      "software development company Mumbai",
+      "app development company India",
+      "ERP software development India",
       "custom CRM development",
       "AI chatbot development",
       "hire dedicated developers",

@@ -107,10 +107,10 @@ export function isOfferBannerLive(
 
 function getDefaultHomeContent(): HomeContent {
   return {
-    heroEyebrow: "MUMBAI · MIDDLE EAST · EUROPE",
+    heroEyebrow: "MUMBAI · INDIA",
     heroHeading: "Mobile, web and AI built by senior engineers.",
     heroSubheading:
-      "Torq Studio is a Mumbai-based engineering studio shipping mobile apps, web platforms, CRMs and grounded AI workflows for companies in the Middle East and Europe. You work directly with the engineers — senior engineers, not slide decks.",
+      "Torq Studio is a Mumbai-based engineering studio shipping mobile apps, web platforms, CRMs and grounded AI workflows for businesses across India. You work directly with the engineers — senior engineers, not slide decks.",
     heroPrimaryCtaLabel: "Get started",
     heroPrimaryCtaHref: "/contact",
     heroSecondaryCtaLabel: "Book free consultation",
