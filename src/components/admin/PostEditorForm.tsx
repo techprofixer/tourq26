@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { BlogPost } from "@/lib/content";
@@ -20,12 +20,15 @@ import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { generateSeoFromContent, stripHtmlToText } from "@/lib/seo-generate";
 import { countWords, readTimeFromWordCount } from "@/lib/blog-server";
 import { slugify } from "@/lib/slug";
+import { formatDateTime } from "@/lib/date-format";
 import { Card, Row, SidebarField, StatusPill } from "@/components/admin/EditorPanels";
 import { BlockListEditor } from "@/components/admin/cms/BlockListEditor";
 import { BLOG_BLOCK_TYPES, parseBlocks, type CmsBlock } from "@/lib/cms/blocks";
 import { extractTextFromCmsBlocks } from "@/lib/seo-generate";
 
 type PostStatus = "draft" | "published";
+
+const noopSubscribe = () => () => {};
 
 /**
  * Editor for article-style content (blog posts and tech-news stories). Everything that differs
@@ -118,6 +121,14 @@ export function PostEditorForm(props: PostEditorProps) {
   const [successMsg, setSuccessMsg] = useState("");
 
   const wordCount = useMemo(() => countWords(body, blocks), [body, blocks]);
+  // Locale/timezone formatting differs between server and browser, so render a
+  // placeholder during SSR/hydration and the viewer's local time afterwards.
+  const dateUpdated = post?.dateUpdated;
+  const lastUpdated = useSyncExternalStore(
+    noopSubscribe,
+    () => (dateUpdated ? formatDateTime(dateUpdated) : ""),
+    () => "—",
+  );
   const effectiveSlug = slugTouched ? slug : slugify(title);
   const effectiveReadTime = readTimeTouched ? readTime : readTimeFromWordCount(wordCount);
   const kindFields = useMemo(
@@ -476,7 +487,7 @@ export function PostEditorForm(props: PostEditorProps) {
               }
             />
             {post?.dateUpdated ? (
-              <Row label="Last updated" value={new Date(post.dateUpdated).toLocaleString()} />
+              <Row label="Last updated" value={lastUpdated} />
             ) : null}
             <Row label="Word count" value={wordCount.toLocaleString()} />
           </Card>

@@ -564,6 +564,8 @@ model HomePageContent {
   offerBannerText     String?
   offerBannerCtaLabel String?
   offerBannerCtaHref  String?
+  /// ISO date (YYYY-MM-DD). Banner stops showing after the end of this day (UTC). Blank = no expiry.
+  offerBannerEndsAt   String?
 
   offersEnabled Boolean @default(false)
   offersHeading String?

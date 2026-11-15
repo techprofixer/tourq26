@@ -82,7 +82,7 @@ export function blogPostingJsonLd(params: {
     mainEntityOfPage: { "@type": "WebPage", "@id": url },
     url,
     image: resolvedImage,
-    inLanguage: "en-US",
+    inLanguage: "en-IN",
   };
   if (params.keywords && params.keywords.length > 0) {
     ld.keywords = params.keywords.join(", ");
@@ -130,7 +130,7 @@ export function webPageJsonLd(params: {
     url,
     name: params.name,
     description: params.description,
-    inLanguage: "en-US",
+    inLanguage: "en-IN",
     isPartOf: { "@id": websiteId(params.siteUrl) },
     publisher: { "@id": organizationId(params.siteUrl) },
     ...(params.datePublished ? { datePublished: params.datePublished } : {}),
@@ -169,7 +169,7 @@ export function articleJsonLd(params: {
     publisher: { "@id": organizationId(params.siteUrl) },
     mainEntityOfPage: { "@id": url },
     url,
-    inLanguage: "en-US",
+    inLanguage: "en-IN",
     ...(params.image ? { image: absoluteUrl(params.siteUrl, params.image) } : {}),
   };
 }
@@ -214,7 +214,7 @@ export function serviceJsonLd(params: {
       name: params.siteName,
       url: params.siteUrl,
     },
-    areaServed: params.areaServed ?? "Worldwide",
+    areaServed: params.areaServed ?? "India",
   };
 }
 

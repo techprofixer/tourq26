@@ -4,7 +4,7 @@ const hub = makeHubPage({
   kind: "LOCATION",
   title: "Locations",
   description:
-    "Where Torq Studio delivers software development — headquartered in Mumbai, serving clients across India and worldwide.",
+    "Where Torq Studio delivers software development — headquartered in Mumbai, serving clients across India.",
   eyebrow: "LOCATIONS",
 });
 

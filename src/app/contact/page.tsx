@@ -61,7 +61,7 @@ export default async function ContactPage() {
               <dl className="mt-10 flex flex-wrap gap-x-8 gap-y-5">
                 {[
                   ["RESPONSE", "Within 24 hours"],
-                  ["OVERLAP", "India · MENA · EU"],
+                  ["BASED IN", "Mumbai · IST"],
                   ["NDA", "Standard or yours — happy to sign"],
                 ].map(([term, desc]) => (
                   <div key={term}>
@@ -178,7 +178,7 @@ export default async function ContactPage() {
           paragraphs={[
             "Fixed-price or milestone work suits bounded scope with clear acceptance criteria. Retainers and embedded squads fit ongoing roadmaps, incident support, and continuous delivery. Discovery engagements are short, paid blocks when you need a written assessment, risk register, or vendor comparison before funding a larger build.",
             "We document decisions in writing, use your issue tracker and repositories when appropriate, and align on security expectations (access, secrets, data residency) from day one. For regulated industries we respect your vendor questionnaires, NDAs, and procurement steps.",
-            "Torq Studio is based in Mumbai; we routinely overlap with teams in India, the Gulf, and Western Europe. If you are unsure whether remote collaboration fits your governance rules, mention it in the form and we will outline how we have handled similar clients.",
+            "Torq Studio is based in Mumbai; we work with teams across India in IST, remotely by default and on-site where it helps. If you are unsure whether remote collaboration fits your governance rules, mention it in the form and we will outline how we have handled similar clients.",
           ]}
         />
       </main>

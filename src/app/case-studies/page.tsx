@@ -38,7 +38,7 @@ export default async function CaseStudiesIndexPage() {
     path: "/case-studies",
     name: "Case studies | Torq Studio",
     description:
-      "How we deliver outcomes for fintech, logistics, e-commerce, and B2B SaaS clients worldwide.",
+      "How we deliver outcomes for fintech, logistics, e-commerce, and B2B SaaS clients.",
   });
 
   return (

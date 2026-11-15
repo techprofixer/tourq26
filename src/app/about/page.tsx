@@ -14,7 +14,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: "About Us",
     description:
-      "Torq Studio is led by senior software engineers who build and advise: mobile apps, websites, AI, and technical consulting for teams worldwide.",
+      "Torq Studio is led by senior software engineers who build and advise: mobile apps, websites, AI, and technical consulting for businesses across India.",
     alternates: { canonical: `${baseUrl}/about` },
     openGraph: {
       images: [DEFAULT_OG_IMAGE],
@@ -42,9 +42,9 @@ const values: { eyebrow: string; title: string; description: string }[] = [
   },
   {
     eyebrow: "REACH",
-    title: "Global delivery, local impact",
+    title: "Senior quality, India-fit pricing",
     description:
-      "We serve clients worldwide with remote teams that deliver. Reduce delivery cost by up to 40% while keeping the senior quality bar.",
+      "We work with Indian businesses and startups, remotely or in person across major cities. Reduce delivery cost by up to 40% while keeping the senior quality bar.",
   },
 ];
 
@@ -160,7 +160,7 @@ export default async function AboutPage() {
           paragraphs={[
             "Torq Studio is structured so you speak with engineers who still write and review production code. That keeps estimates grounded, reduces telephone-game miscommunication, and makes handover documentation trustworthy because the same people who build also explain trade-offs.",
             "We are comfortable joining your rituals — stand-ups, design reviews, incident channels — when embedded, and we are equally comfortable owning a bounded milestone with written acceptance criteria when you prefer a fixed scope. Security, privacy, and compliance expectations are surfaced early, especially for apps that handle accounts, payments, or regulated data.",
-            "Based in Mumbai with overlap for India, Europe, and MENA time zones, we collaborate remotely by default. Whether you need a mobile release owner, a web platform rebuild, API hardening, or practical AI workflows, we align on overlap hours and written decisions so progress survives team changes on your side.",
+            "Based in Mumbai we work in IST by default and collaborate remotely or on-site across Indian cities. Whether you need a mobile release owner, a web platform rebuild, API hardening, or practical AI workflows, we align on overlap hours and written decisions so progress survives team changes on your side.",
           ]}
         />
 

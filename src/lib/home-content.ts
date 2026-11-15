@@ -57,6 +57,8 @@ export type HomeContent = {
   offerBannerText: string;
   offerBannerCtaLabel: string;
   offerBannerCtaHref: string;
+  /** YYYY-MM-DD; banner auto-hides after this day (UTC). Blank = never expires. */
+  offerBannerEndsAt: string;
 
   offersEnabled: boolean;
   offersHeading: string;
@@ -91,12 +93,24 @@ export type HomeContent = {
   snapshotParagraphs: string[];
 };
 
+/** True while the banner is enabled, has text, and its optional end date (inclusive, UTC) has not passed. */
+export function isOfferBannerLive(
+  home: Pick<HomeContent, "offerBannerEnabled" | "offerBannerText" | "offerBannerEndsAt">,
+  now: Date = new Date(),
+): boolean {
+  if (!home.offerBannerEnabled || !home.offerBannerText.trim()) return false;
+  const end = home.offerBannerEndsAt.trim();
+  if (!end) return true;
+  const endMs = Date.parse(`${end}T23:59:59.999Z`);
+  return Number.isNaN(endMs) || now.getTime() <= endMs;
+}
+
 function getDefaultHomeContent(): HomeContent {
   return {
-    heroEyebrow: "ENGINEERING-LED · MOBILE · WEB · AI",
-    heroHeading: "Build what's next with senior engineers, not slide decks.",
+    heroEyebrow: "MUMBAI · INDIA",
+    heroHeading: "Mobile, web and AI built by senior engineers.",
     heroSubheading:
-      "Torq Studio ships mobile apps, web platforms, public APIs, and grounded AI workflows. You work directly with the engineers doing the work — no account layers, no black-box estimates.",
+      "Torq Studio is a Mumbai-based engineering studio shipping mobile apps, web platforms, CRMs and grounded AI workflows for businesses across India. You work directly with the engineers — senior engineers, not slide decks.",
     heroPrimaryCtaLabel: "Get started",
     heroPrimaryCtaHref: "/contact",
     heroSecondaryCtaLabel: "Book free consultation",
@@ -117,6 +131,7 @@ function getDefaultHomeContent(): HomeContent {
     offerBannerText: "Limited-time: free architecture review with every new engagement booked this month.",
     offerBannerCtaLabel: "Claim this offer",
     offerBannerCtaHref: "/contact",
+    offerBannerEndsAt: "",
 
     offersEnabled: false,
     offersHeading: "Current offers",
@@ -306,6 +321,7 @@ export async function readHomeContent(): Promise<HomeContent> {
     offerBannerText: row.offerBannerText || d.offerBannerText,
     offerBannerCtaLabel: row.offerBannerCtaLabel || d.offerBannerCtaLabel,
     offerBannerCtaHref: row.offerBannerCtaHref || d.offerBannerCtaHref,
+    offerBannerEndsAt: row.offerBannerEndsAt || d.offerBannerEndsAt,
 
     offersEnabled: row.offersEnabled ?? d.offersEnabled,
     offersHeading: row.offersHeading || d.offersHeading,
@@ -367,6 +383,7 @@ export async function writeHomeContent(data: HomeContent): Promise<void> {
     offerBannerText: data.offerBannerText,
     offerBannerCtaLabel: data.offerBannerCtaLabel,
     offerBannerCtaHref: data.offerBannerCtaHref,
+    offerBannerEndsAt: data.offerBannerEndsAt.trim(),
 
     offersEnabled: data.offersEnabled,
     offersHeading: data.offersHeading,

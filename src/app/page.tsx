@@ -15,7 +15,7 @@ import HomePageContent from "@/components/HomePageContent";
 import Footer from "@/components/Footer";
 import JsonLd from "@/components/JsonLd";
 import { readTestimonials, readSiteContent } from "@/lib/content";
-import { readHomeContent } from "@/lib/home-content";
+import { readHomeContent, isOfferBannerLive } from "@/lib/home-content";
 import { readCaseStudies } from "@/lib/case-studies-content";
 import { webPageJsonLd } from "@/lib/seo";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
@@ -58,7 +58,7 @@ export default async function Home() {
     description: site.defaultDescription,
   });
 
-  const bannerActive = home.offerBannerEnabled && Boolean(home.offerBannerText.trim());
+  const bannerActive = isOfferBannerLive(home);
 
   return (
     <>

@@ -17,7 +17,7 @@ function getDefaultFooterContent(): FooterContent {
   return {
     blurb:
       "Senior software engineers for mobile applications, web platforms, public APIs, and grounded AI workflows. Clear scope, direct communication, production-quality delivery — every engagement.",
-    tagline: "BASED IN MUMBAI · OVERLAP WITH INDIA / EU / MENA",
+    tagline: "BASED IN MUMBAI · SERVING INDIA",
     columns: [
       {
         eyebrow: "PLATFORM",

@@ -92,7 +92,7 @@ export function buildPageMetadata(
       title: seo?.ogTitle || title,
       description: seo?.ogDescription || description,
       url: canonical,
-      locale: "en_US",
+      locale: "en_IN",
       ...(siteName ? { siteName } : {}),
       images: [image],
       ...(isArticle
