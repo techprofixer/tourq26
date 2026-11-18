@@ -1,5 +1,14 @@
 import { z } from "zod";
 import { TITLE_MAX, DESC_MAX, clampAtWord } from "@/lib/seo-generate";
+import {
+  buildFixBrief,
+  cleanDraft,
+  fullPageSchema,
+  refineAudit,
+  type FullPageDraft,
+  type RefineAudit,
+  type SeoAuditContext,
+} from "@/lib/ai/full-page";
 
 const HOUSE_VOICE = `You are a principal SEO content strategist and copywriter for a software studio's marketing site and admin CMS. Write in a confident, concrete, no-fluff voice: specific outcomes over vague adjectives, active voice, no filler like "in today's fast-paced world". Optimize for search intent and readability: match the likely intent behind the focus keyword or topic, work the primary keyword and its natural variants in early and organically (never keyword-stuff), favor short sentences and scannable structure over dense paragraphs, and write for a human reader first — the SEO benefit follows from genuinely answering the query well. Never invent statistics, client names, or claims that aren't given in the context — if the context lacks a detail, write around it rather than fabricating one.`;
 
@@ -9,6 +18,35 @@ export const TARGET_WORDS_LABEL = "Target length (words)";
 
 const LONG_FORM_BASE_TOKENS = 2600;
 const LONG_FORM_MAX_TOKENS = 8000;
+
+/** Persona + ranking rules for whole-page generation. Layered on HOUSE_VOICE: a senior engineer
+ *  who has shipped this kind of work, writing so that both Google and answer engines (AI Overviews,
+ *  ChatGPT, Perplexity, Claude) can lift accurate, self-contained statements from the page. */
+const SENIOR_ENGINEER_PAGE_WRITER = `${HOUSE_VOICE}
+
+You are also a senior software engineer and technical lead with 15+ years of shipping production systems, writing the way you would explain the topic to a smart buyer in a scoping call: concrete, opinionated where experience justifies it, honest about trade-offs and about when NOT to buy the service. Demonstrate experience through specifics — failure modes, sequencing, what you check first, what is usually underestimated — rather than claims of being "best" or "leading". Never invent a statistic, client, award, certification, price or timeline; if you lack a fact, describe the principle or process instead.
+
+Write for ranking in Google AND for citation by answer engines:
+- Answer first. The first sentence of every section and every FAQ answer directly states the answer; supporting detail follows. Each takeaway and FAQ answer must make sense when quoted on its own, naming the subject explicitly (no "it", "this", "that").
+- Use the exact entity and category names consistently (the company name, the service name, the place). Define the topic in one clear sentence early on.
+- Shape section headings around what people search and ask — at least two headings must be real questions ("How long does X take?", "When should you build custom instead of buying?"), the rest descriptive and keyword-aware.
+- Cover the buyer's full decision: what it is, who it is for, how it works, process and deliverables, cost drivers and timeline factors (qualitative, no invented numbers), risks and trade-offs, how to choose, and what to do next.
+- Prefer lists for steps and criteria, short paragraphs for reasoning. No paragraph over ~90 words.
+- Internal links: link only to paths from the provided "Internal pages" list, using descriptive anchor text, 4-8 links spread across sections. Never invent a URL.
+- Outbound links: ONLY when the brief gives "Authoritative sources to cite". Then cite one or two with <a href='EXACT_URL'> using the URL exactly as given. Otherwise include no external links at all.
+
+SEO SCORECARD — the finished page is machine-audited by an automated analyzer on exactly these rules, and each one must pass. Write to them deliberately:
+1. The primary keyword appears verbatim (same words, same order) in: metaTitle, metaDescription, hero.heading (the H1), and the first 100 words of the page (hero.subheading counts).
+2. metaTitle is 40-60 characters. metaDescription is 120-155 characters. Count them.
+3. Keyword density is 0.8%-2% of the total words: about once per 80-120 words, spread across sections, headings and FAQs. Zero mentions fails; above 2.5% fails as stuffing.
+4. Every secondary keyword appears verbatim at least once in the body or meta description.
+5. Total copy (hero + takeaways + sections + features + FAQs + CTA) is 1,000-2,200 words. Under 600 fails.
+6. At least 3 internal links, from the allowed list. At least one section heading ends with a question mark (aim for two or three).
+7. 3-5 takeaways and 6-8 FAQs. Section headings are real headings, never empty.
+Also set seo.focusKeyword to the primary keyword you used.
+- Banned: "in today's fast-paced world", "cutting-edge", "state-of-the-art", "game-changer", "revolutionary", "unlock the power", "seamless", "world-class", "best-in-class", "ever-evolving", and any marketing superlative you cannot prove.
+
+HTML rules for every bodyHtml and FAQ answer: allowed tags are <p>, <ul>, <ol>, <li>, <strong>, <em>, <a>, <h3> only. Use SINGLE quotes for attributes (<a href='/contact'>) so the surrounding JSON stays valid. No <h1>/<h2> inside bodies — the section heading is a separate field.`;
 
 /** ~2.2 tokens per word covers the prose plus its HTML tags; the base budget handles ≤ ~1,000 words. */
 function longFormTokenBudget(brief: string): number {
@@ -29,6 +67,7 @@ export const TASK_LABELS: Record<string, string> = {
   polishQuote: "Polish testimonial",
   keywordSuggestions: "Keyword suggestions",
   brandVoiceDraft: "Brand voice draft",
+  fullPage: "Whole page (SEO + AI-search optimised)",
 };
 
 /** Human-readable names of the fields each task fills — shown in the modal, not sent to the model. */
@@ -44,6 +83,15 @@ export const TASK_FIELDS: Record<string, string[]> = {
   polishQuote: ["Quote", "Result tag"],
   keywordSuggestions: ["Keywords"],
   brandVoiceDraft: ["Voice description", "Guidelines"],
+  fullPage: [
+    "Hero",
+    "Key takeaways",
+    "4–6 content sections",
+    "Feature cards",
+    "FAQs (schema-ready)",
+    "Call to action",
+    "Meta title, description and excerpt",
+  ],
 };
 
 function ctx(context: Record<string, unknown>, key: string): string {
@@ -55,6 +103,33 @@ function ctx(context: Record<string, unknown>, key: string): string {
 /** Same as `ctx`, but an empty value reads as "(none given)" instead of leaving a dangling label. */
 function ctxOrNone(context: Record<string, unknown>, key: string, max = 3000): string {
   return ctx(context, key).trim().slice(0, max) || "(none given)";
+}
+
+/** Label of the extra field listing URLs the model may cite as outbound links. Last in the form, so
+ *  everything after it in the brief is the editor's source list. */
+export const SOURCES_LABEL = "Authoritative sources to cite (full URLs)";
+
+/** The route passes the final (editor-edited) brief to hooks as `__brief`. */
+function sourceUrls(context: Record<string, unknown>): string[] {
+  const brief = ctx(context, "__brief");
+  const at = brief.indexOf(SOURCES_LABEL);
+  if (at < 0) return [];
+  return [...new Set(brief.slice(at).match(/https?:\/\/[^\s,;)<>"']+/g) ?? [])];
+}
+
+/** What the SEO analyzer needs to know about the page being written, taken from editor context. */
+function auditContext(context: Record<string, unknown>): SeoAuditContext {
+  const path = ctx(context, "path");
+  return {
+    title: ctx(context, "title"),
+    slug: ctx(context, "slug") || path.split("/").filter(Boolean).pop(),
+    focusKeyword: ctx(context, "focusKeyword"),
+    secondaryKeywords: ctx(context, "secondaryKeywords")
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
+    hasSources: sourceUrls(context).length > 0,
+  };
 }
 
 /** "Don't repeat the sibling cards / questions" line — empty when the item has no siblings. */
@@ -87,8 +162,16 @@ export type TaskDef =
       buildBrief(context: Record<string, unknown>): string;
       responseContract: string;
       maxOutputTokens?: number;
-      /** Enforces limits the model can't be trusted to count (e.g. character caps). */
-      postProcess?(result: Record<string, unknown>): Record<string, unknown>;
+      /** Enforces limits the model can't be trusted to count (e.g. character caps). `context` is the
+       *  same (enriched) context the brief was built from. */
+      postProcess?(result: Record<string, unknown>, context: Record<string, unknown>): Record<string, unknown>;
+      /** Optional audit-and-fix loop: score the (post-processed) result, and when fixable problems
+       *  remain the route runs ONE more model pass built from `buildFixBrief`, keeping whichever
+       *  draft scores higher. Never makes the result worse. */
+      refine?: {
+        audit(result: Record<string, unknown>, context: Record<string, unknown>): RefineAudit;
+        buildFixBrief(result: Record<string, unknown>, issues: string[], brief: string): string;
+      };
     };
 
 export type TaskName =
@@ -102,7 +185,18 @@ export type TaskName =
   | "shortCopy"
   | "polishQuote"
   | "keywordSuggestions"
-  | "brandVoiceDraft";
+  | "brandVoiceDraft"
+  | "fullPage";
+
+/** Hard output cap and a best-guess real length for a task — the progress bar and ETA are scaled
+ *  against `expected`, so a 150-token excerpt and a 6,000-token page both fill the bar sensibly. */
+export function tokenPlan(def: TaskDef, brief: string): { max: number; expected: number } {
+  const max = (def.mode === "text" ? def.maxOutputTokensFor?.(brief) : undefined) ?? def.maxOutputTokens ?? 700;
+  const words = brief.match(/Target length \(words\):\s*(\d+)/);
+  // ~2 tokens per word covers prose + HTML tags + JSON scaffolding; +500 for hero/meta/FAQ framing.
+  const expected = words ? Number(words[1]) * 2 + 500 : Math.round(max * 0.5);
+  return { max, expected: Math.max(50, Math.min(max, expected)) };
+}
 
 /** Full prompt sent to the model: the (possibly admin-edited) brief + the fixed, hidden format contract. */
 export function buildFullPrompt(def: TaskDef, brief: string): string {
@@ -228,5 +322,49 @@ export const TASKS: Record<TaskName, TaskDef> = {
     }),
     buildBrief: (context) => `Draft a brand voice guide for this business:\n${ctx(context, "businessDescription")}`,
     responseContract: `Return JSON: { "voiceDescription": string (2-3 sentences describing the tone, e.g. "confident, direct, technical but not jargon-heavy"), "voiceGuidelines": string (3-5 short do's/don'ts as a single newline-separated list, e.g. "Do: lead with outcomes.\\nDon't: use hype words like 'revolutionary'.") }.`,
+  },
+  fullPage: {
+    mode: "object",
+    system: SENIOR_ENGINEER_PAGE_WRITER,
+    schema: fullPageSchema,
+    // The editor can't know real URLs; the API route injects `internalLinks` (published page paths).
+    buildBrief: (context) =>
+      [
+        `Write a complete, publish-ready ${ctx(context, "pageType") || "marketing"} page.`,
+        `Page title: ${ctxOrNone(context, "title")}`,
+        `URL path: ${ctx(context, "path") || "(not set)"}`,
+        `Primary keyword: ${ctx(context, "focusKeyword") || "(infer the best one from the title)"}`,
+        `Secondary keywords: ${ctx(context, "secondaryKeywords") || "(none given)"}`,
+        `Audience and search intent: ${ctx(context, "audience") || "a buyer comparing providers, ready to evaluate"}`,
+        `Internal pages you may link to (use ONLY these paths):\n${ctxOrNone(context, "internalLinks", 2500)}`,
+        ctx(context, "existingText").trim()
+          ? `Existing copy to improve on (keep any true facts it states):\n${ctx(context, "existingText").slice(0, 3500)}`
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+    responseContract: `Return ONE JSON object with exactly these keys:
+{
+  "seo": { "metaTitle": string (40-${TITLE_MAX} chars, contains the primary keyword verbatim near the start, no site name), "metaDescription": string (120-${DESC_MAX} chars, contains the primary keyword verbatim, concrete benefit plus a soft call to action), "excerpt": string (1-2 sentences for cards and link previews), "focusKeyword": string (the primary keyword, verbatim) },
+  "hero": { "eyebrow": string (2-4 words), "heading": string (the H1: includes the primary keyword, states the outcome, <= 14 words), "subheading": string (2-3 sentences, ~40-60 words, defines what the page offers and for whom) },
+  "takeaways": string[] (3-5 standalone, quotable, factual statements — each names the subject explicitly),
+  "sections": [ { "eyebrow": string (2-3 word label), "heading": string, "bodyHtml": string } ] (5-6 sections, ~120-220 words each, answer-first; at least two headings are questions; include one section on trade-offs or when NOT to choose this, and one on process or how it works),
+  "features": { "heading": string, "items": [ { "title": string (2-5 words), "description": string (one concrete sentence, 15-25 words) } ] (4-6 items) },
+  "faqs": [ { "question": string (as a buyer would type it), "answer": string (HTML, 2-4 sentences, direct answer in the first sentence) } ] (6-8 items covering cost drivers, timeline, process, risks, ownership, and how to start),
+  "cta": { "heading": string, "body": string (2-3 sentences with a concrete next step), "primaryCtaLabel": string (2-4 words, verb first) }
+}
+Meet the target length given in the brief across sections and FAQs combined; a short page is a failure. Use single quotes inside HTML attributes.`,
+    maxOutputTokens: LONG_FORM_MAX_TOKENS,
+    postProcess: (result, context) => {
+      const links = ctx(context, "internalLinks")
+        .split(/[\s,]+/)
+        .filter((p) => p.startsWith("/"));
+      return cleanDraft(result as FullPageDraft, links, sourceUrls(context)) as unknown as Record<string, unknown>;
+    },
+    // Same analyzer as the editor's SEO sidebar; one targeted rewrite when fixable checks fail.
+    refine: {
+      audit: (result, context) => refineAudit(result as FullPageDraft, auditContext(context)),
+      buildFixBrief: (result, issues, brief) => buildFixBrief(result as FullPageDraft, issues, brief),
+    },
   },
 };

@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { Dialog, DialogPanel, DialogTitle } from "@headlessui/react";
 import { useAiGenerate } from "@/lib/ai/useAiGenerate";
-import { TASK_LABELS, TASK_FIELDS, TARGET_WORDS_LABEL, type TaskName } from "@/lib/ai/tasks";
+import { TASK_LABELS, TASK_FIELDS, TARGET_WORDS_LABEL, SOURCES_LABEL, type TaskName } from "@/lib/ai/tasks";
 import { Spinner } from "@/components/Spinner";
+import { AiProgressPanel } from "@/components/admin/AiProgressPanel";
 
 type Variant = "secondary" | "inline" | "outline";
 
@@ -70,6 +71,43 @@ export function longFormExtraFields({
   ];
 }
 
+/** Targeting controls for the `fullPage` task. The keyword and audience are part of the brief
+ *  itself (from the editor's context); these add length, ground-truth facts and exclusions. */
+export function fullPageExtraFields({ words = "1400" }: { words?: string } = {}): ExtraField[] {
+  return [
+    {
+      key: "targetWords",
+      label: TARGET_WORDS_LABEL,
+      type: "number",
+      defaultValue: words,
+      helpText: "Total across sections and FAQs. 1,200–1,800 suits a service or hub page.",
+    },
+    {
+      key: "facts",
+      label: "Facts you may use",
+      type: "textarea",
+      placeholder:
+        "Ground truth only: where you're based, services offered, process steps, tools, team size, real proof points. The AI won't invent anything beyond this.",
+      helpText: "The more real detail you give, the more specific (and citable) the page becomes.",
+    },
+    {
+      key: "avoid",
+      label: "Avoid",
+      type: "textarea",
+      placeholder: "e.g. no pricing, don't mention competitors, no claims about certifications",
+    },
+    // Keep this LAST: the server reads every URL after this label as the allowed source list.
+    {
+      key: "sources",
+      label: SOURCES_LABEL,
+      type: "textarea",
+      placeholder: "One per line, e.g. https://developers.google.com/search/docs/…",
+      helpText:
+        "Optional. The SEO check wants an outbound link to an authoritative source; the AI only cites URLs you list here, never ones it invents.",
+    },
+  ];
+}
+
 function formatExtraFields(fields: ExtraField[], values: Record<string, string>): string {
   return fields
     .map((f) => {
@@ -102,7 +140,7 @@ export function AiGenerateButton<T = string | Record<string, unknown>>({
    *  above the brief textarea. Folded into the brief text at generation time. */
   extraFields?: ExtraField[];
 }) {
-  const { run, previewBrief, loading, previewLoading, error, setError } = useAiGenerate();
+  const { run, previewBrief, cancel, loading, previewLoading, error, setError, progress } = useAiGenerate();
   const [open, setOpen] = useState(false);
   const [brief, setBrief] = useState("");
   const [extraValues, setExtraValues] = useState<Record<string, string>>({});
@@ -161,7 +199,9 @@ export function AiGenerateButton<T = string | Record<string, unknown>>({
                 : "Optimized for SEO — feel free to add your own details below."}
             </p>
 
-            {extraFields?.length ? (
+            {loading ? <AiProgressPanel progress={progress} /> : null}
+
+            {!loading && extraFields?.length ? (
               <div className="mt-4 grid gap-3 rounded-lg border border-border/60 bg-muted/20 p-3.5 sm:grid-cols-2">
                 {extraFields.map((f) => (
                   <label
@@ -196,7 +236,7 @@ export function AiGenerateButton<T = string | Record<string, unknown>>({
               </div>
             ) : null}
 
-            <div className="mt-4">
+            <div className={loading ? "hidden" : "mt-4"}>
               <label className="mono-label text-muted-foreground">What should the AI write about?</label>
               <textarea
                 value={previewLoading ? "Loading…" : brief}
@@ -216,8 +256,12 @@ export function AiGenerateButton<T = string | Record<string, unknown>>({
             ) : null}
 
             <div className="mt-5 flex justify-end gap-2">
-              <button type="button" onClick={close} disabled={loading} className="btn-base btn-outline">
-                Cancel
+              <button
+                type="button"
+                onClick={loading ? cancel : close}
+                className="btn-base btn-outline"
+              >
+                {loading ? "Stop" : "Cancel"}
               </button>
               <button
                 type="button"

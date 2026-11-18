@@ -1,4 +1,6 @@
 import { countWords } from "@/lib/blog-server";
+import { extractTextFromCmsBlocks } from "@/lib/seo-generate";
+import type { CmsBlock } from "@/lib/cms/blocks";
 
 export type SeoCheckStatus = "pass" | "warn" | "fail";
 
@@ -266,6 +268,47 @@ export function aeoChecks(input: PageSeoInput): SeoCheck[] {
       "aeo",
     ),
   ];
+}
+
+/** The block-derived half of `PageSeoInput`. Shared by the editor's live sidebar and the AI
+ *  full-page generator so both score a page identically. */
+export function blocksToSeoInput(
+  blocks: CmsBlock[],
+): Pick<
+  PageSeoInput,
+  | "bodyText"
+  | "heroHeading"
+  | "hasHeading"
+  | "rawHtml"
+  | "blockTypesPresent"
+  | "faqCount"
+  | "summaryItems"
+  | "questionHeadings"
+> {
+  const heroBlock = blocks.find((b) => b.type === "hero");
+  const hasHeading = blocks.some(
+    (b) => (b.type === "contentSection" || b.type === "hero") && Boolean(b.heading?.trim()),
+  );
+  const rawHtml = blocks
+    .map((b) => {
+      if (b.type === "contentSection") return b.bodyHtml;
+      if (b.type === "cta") return b.body ?? "";
+      return "";
+    })
+    .filter(Boolean)
+    .join(" ");
+  return {
+    bodyText: extractTextFromCmsBlocks(blocks),
+    heroHeading: heroBlock?.type === "hero" ? heroBlock.heading : "",
+    hasHeading,
+    rawHtml,
+    blockTypesPresent: Array.from(new Set(blocks.map((b) => b.type))),
+    faqCount: blocks.reduce((n, b) => n + (b.type === "faq" ? b.items.length : 0), 0),
+    summaryItems: blocks.reduce((n, b) => n + (b.type === "summary" ? b.items.length : 0), 0),
+    questionHeadings: blocks.filter(
+      (b) => b.type === "contentSection" && Boolean(b.heading?.trim().endsWith("?")),
+    ).length,
+  };
 }
 
 export function analyzePageSeo(input: PageSeoInput): SeoCheck[] {

@@ -14,10 +14,17 @@ import {
 } from "@/lib/seo-generate";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
 import { SerpPreview } from "@/components/admin/SerpPreview";
-import { AiGenerateButton } from "@/components/admin/AiGenerateButton";
+import { AiGenerateButton, fullPageExtraFields } from "@/components/admin/AiGenerateButton";
+import {
+  fullPageToBlocks,
+  lintDraft,
+  type DraftWarning,
+  type FullPageResult,
+  type SeoAuditSummary,
+} from "@/lib/ai/full-page";
 import { SeoAnalysisSidebar } from "@/components/admin/cms/SeoAnalysisSidebar";
 import { Card, Row, SidebarField, StatusPill } from "@/components/admin/EditorPanels";
-import { analyzePageSeo, summarizeSeoChecks } from "@/lib/seo-analysis";
+import { analyzePageSeo, blocksToSeoInput, summarizeSeoChecks } from "@/lib/seo-analysis";
 import { SuggestedLinksBar } from "@/components/admin/cms/SuggestedLinksBar";
 import { BlockListEditor, Icon, ICON } from "@/components/admin/cms/BlockListEditor";
 
@@ -65,6 +72,7 @@ const PAGE_TYPES: { value: PageType; label: string; hint: string }[] = [
   { value: "COMPARISON", label: "Comparison", hint: "/compare/… · Article schema" },
   { value: "GLOSSARY", label: "Glossary term", hint: "/resources/glossary/… · DefinedTerm schema" },
   { value: "LANDING", label: "Landing page", hint: "/… · WebPage schema" },
+  { value: "CUSTOM", label: "Hub / custom page", hint: "/… · WebPage schema (category hubs like /services)" },
   { value: "COMPANY", label: "Company page", hint: "/company/… · WebPage schema" },
 ];
 
@@ -149,6 +157,8 @@ export function PageEditor({
   const [error, setError] = useState<string | null>(null);
   const [titleInvalid, setTitleInvalid] = useState(false);
   const [savedNotice, setSavedNotice] = useState<string | null>(null);
+  const [aiWarnings, setAiWarnings] = useState<DraftWarning[]>([]);
+  const [aiAudit, setAiAudit] = useState<SeoAuditSummary | null>(null);
   const [sidebarTab, setSidebarTab] = useState<"page" | "seo">("page");
   const titleRef = useRef<HTMLInputElement>(null);
 
@@ -341,6 +351,30 @@ export function PageEditor({
     return () => clearTimeout(t);
   }, [savedNotice]);
 
+  /** Applies a whole-page AI draft: replaces the blocks and fills any empty meta fields — never
+   *  overwrites meta text the editor already wrote. */
+  function applyFullPage(draft: FullPageResult) {
+    if (
+      blocks.length > 0 &&
+      !window.confirm(`Replace the ${blocks.length} existing blocks with the generated page?`)
+    ) {
+      return;
+    }
+    setBlocks(fullPageToBlocks(draft));
+    if (!metaTitle.trim()) setMetaTitle(draft.seo.metaTitle);
+    if (!metaDescription.trim()) setMetaDescription(draft.seo.metaDescription);
+    if (!excerpt.trim()) setExcerpt(draft.seo.excerpt);
+    // Adopt the keyword the AI wrote around when the editor hadn't set one, so the SEO analysis
+    // (which skips every keyword check without a focus keyword) can score the page.
+    if (!focusKeyword.trim() && !targetKeyword.trim() && draft.seo.focusKeyword) {
+      setFocusKeyword(draft.seo.focusKeyword);
+    }
+    setAiWarnings(lintDraft(draft));
+    setAiAudit(draft.audit ?? null);
+    // Show the live analysis straight away — it's the same scorer the generator just used.
+    setSidebarTab("seo");
+  }
+
   function insertLinkSuggestion(suggestion: LinkSuggestion) {
     setBlocks((prev) => {
       const targetIndex = prev.map((b) => b.type).lastIndexOf("contentSection");
@@ -356,32 +390,7 @@ export function PageEditor({
     });
   }
 
-  const seoAnalysisInput = useMemo(() => {
-    const heroBlock = blocks.find((b) => b.type === "hero");
-    const hasHeading = blocks.some(
-      (b) => (b.type === "contentSection" || b.type === "hero") && Boolean(b.heading?.trim()),
-    );
-    const rawHtml = blocks
-      .map((b) => {
-        if (b.type === "contentSection") return b.bodyHtml;
-        if (b.type === "cta") return b.body ?? "";
-        return "";
-      })
-      .filter(Boolean)
-      .join(" ");
-    return {
-      bodyText: extractTextFromCmsBlocks(blocks),
-      heroHeading: heroBlock?.type === "hero" ? heroBlock.heading : "",
-      hasHeading,
-      rawHtml,
-      blockTypesPresent: Array.from(new Set(blocks.map((b) => b.type))),
-      faqCount: blocks.reduce((n, b) => n + (b.type === "faq" ? b.items.length : 0), 0),
-      summaryItems: blocks.reduce((n, b) => n + (b.type === "summary" ? b.items.length : 0), 0),
-      questionHeadings: blocks.filter(
-        (b) => b.type === "contentSection" && Boolean(b.heading?.trim().endsWith("?")),
-      ).length,
-    };
-  }, [blocks]);
+  const seoAnalysisInput = useMemo(() => blocksToSeoInput(blocks), [blocks]);
 
   const seoProps = {
     title,
@@ -558,6 +567,80 @@ export function PageEditor({
                 onChange={(e) => setExcerpt(e.target.value)}
               />
             </div>
+          </section>
+
+          <section className="card-flat space-y-3 p-5 sm:p-6" aria-labelledby="ai-page-heading">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 id="ai-page-heading" className="text-[15px] font-medium text-foreground">
+                  Write the whole page with AI
+                </h2>
+                <p className="mt-1 max-w-xl text-[13px] text-muted-foreground">
+                  One pass drafts the hero, key takeaways, sections, FAQs, CTA and meta tags —
+                  structured to rank in Google and to be quoted by AI answers. Set the title and
+                  focus keyword first; always review facts before publishing.
+                </p>
+              </div>
+              <AiGenerateButton<FullPageResult>
+                task="fullPage"
+                variant="secondary"
+                label={blocks.length > 0 ? "Rewrite whole page" : "Write whole page"}
+                context={{
+                  title,
+                  path: previewPath,
+                  slug,
+                  pageType: typeMeta?.label ?? "",
+                  focusKeyword: focusKeyword || targetKeyword,
+                  secondaryKeywords,
+                  existingText: extractTextFromCmsBlocks(blocks),
+                }}
+                extraFields={fullPageExtraFields()}
+                onResult={applyFullPage}
+                disabled={!title.trim()}
+              />
+            </div>
+            {aiAudit ? (
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-3.5">
+                <p className="mono-label text-muted-foreground">SEO analysis of the generated page</p>
+                <p className="mt-1.5 text-[14px] font-medium text-foreground">
+                  {aiAudit.passed}/{aiAudit.total} checks passing
+                  {aiAudit.optimized ? (
+                    <span className="font-normal text-muted-foreground">
+                      {" "}
+                      — up from {aiAudit.initialPassed} after an automatic SEO fix pass
+                    </span>
+                  ) : null}
+                </p>
+                {aiAudit.remaining.length > 0 ? (
+                  <>
+                    <p className="mt-2 text-[12.5px] text-muted-foreground">
+                      Still open — these need you (slug, images, share image) or a manual tweak:
+                    </p>
+                    <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[13px] text-foreground">
+                      {aiAudit.remaining.map((r) => (
+                        <li key={r.id}>
+                          <span className="font-medium">{r.label}:</span> {r.detail}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="mt-1.5 text-[12.5px] text-muted-foreground">
+                    Every check passes. The sidebar shows the live analysis as you edit.
+                  </p>
+                )}
+              </div>
+            ) : null}
+            {aiWarnings.length > 0 ? (
+              <div className="rounded-lg border border-border/60 bg-muted/20 p-3.5">
+                <p className="mono-label text-muted-foreground">Review before publishing</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5 text-[13px] text-foreground">
+                  {aiWarnings.map((w) => (
+                    <li key={w.code}>{w.message}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
           </section>
 
           <BlockListEditor

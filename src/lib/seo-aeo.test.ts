@@ -87,8 +87,10 @@ describe("CMS paths", () => {
     expect(pagePathError("/blog/my-post")).toMatch(/built-in section/);
     expect(pagePathError("/admin")).not.toBeNull();
     expect(pagePathError("/")).not.toBeNull();
-    expect(pagePathError("/solutions")).not.toBeNull();
-    expect(pagePathError("/services")).toBeNull(); // hub renders a CMS override when present
+    // Every entity hub renders a published CMS page at its own path when one exists.
+    for (const hub of ["/services", "/solutions", "/industries", "/technologies", "/locations"]) {
+      expect(pagePathError(hub)).toBeNull();
+    }
     expect(pagePathError("/services/web")).toBeNull();
     expect(pagePathError("/compare/a-vs-b")).toBeNull();
   });
