@@ -1,8 +1,15 @@
+import type { AuthoritySource } from "@/lib/ai/authority-sources";
 import { z } from "zod";
 import { TITLE_MAX, DESC_MAX, clampAtWord } from "@/lib/seo-generate";
 import {
   buildFixBrief,
   cleanDraft,
+  missingWords,
+  expansionSchema,
+  EXPANSION_CONTRACT,
+  buildExpandBrief,
+  mergeExpansion,
+  ensureSourceLink,
   fullPageSchema,
   refineAudit,
   type FullPageDraft,
@@ -33,12 +40,12 @@ Write for ranking in Google AND for citation by answer engines:
 - Cover the buyer's full decision: what it is, who it is for, how it works, process and deliverables, cost drivers and timeline factors (qualitative, no invented numbers), risks and trade-offs, how to choose, and what to do next.
 - Prefer lists for steps and criteria, short paragraphs for reasoning. No paragraph over ~90 words.
 - Internal links: link only to paths from the provided "Internal pages" list, using descriptive anchor text, 4-8 links spread across sections. Never invent a URL.
-- Outbound links: ONLY when the brief gives "Authoritative sources to cite". Then cite one or two with <a href='EXACT_URL'> using the URL exactly as given. Otherwise include no external links at all.
+- Outbound links: ONLY when the brief gives "Authoritative sources to cite" or "Suggested authoritative sources". Then cite one or two with <a href='EXACT_URL'> using the URL exactly as given. Otherwise include no external links at all.
 
 SEO SCORECARD — the finished page is machine-audited by an automated analyzer on exactly these rules, and each one must pass. Write to them deliberately:
 1. The primary keyword appears verbatim (same words, same order) in: metaTitle, metaDescription, hero.heading (the H1), and the first 100 words of the page (hero.subheading counts).
 2. metaTitle is 40-60 characters. metaDescription is 120-155 characters. Count them.
-3. Keyword density is 0.8%-2% of the total words: about once per 80-120 words, spread across sections, headings and FAQs. Zero mentions fails; above 2.5% fails as stuffing.
+3. Keyword density is 0.8%-2% of the total words: about once per 80-120 words, spread across sections, headings and FAQs. Zero mentions fails; above 2.5% fails as stuffing — so NEVER repeat the exact phrase more than once per ~60 words. After the first mention in a section, switch to variants ('this service', pronouns, a reworded or shorter phrase) rather than repeating the phrase verbatim.
 4. Every secondary keyword appears verbatim at least once in the body or meta description.
 5. Total copy (hero + takeaways + sections + features + FAQs + CTA) is 1,000-2,200 words. Under 600 fails.
 6. At least 3 internal links, from the allowed list. At least one section heading ends with a question mark (aim for two or three).
@@ -113,8 +120,17 @@ export const SOURCES_LABEL = "Authoritative sources to cite (full URLs)";
 function sourceUrls(context: Record<string, unknown>): string[] {
   const brief = ctx(context, "__brief");
   const at = brief.indexOf(SOURCES_LABEL);
-  if (at < 0) return [];
-  return [...new Set(brief.slice(at).match(/https?:\/\/[^\s,;)<>"']+/g) ?? [])];
+  const fromEditor = at < 0 ? [] : (brief.slice(at).match(/https?:\/\/[^\s,;)<>"']+/g) ?? []);
+  // Curated sources the route matched to the page topic (see authority-sources.ts).
+  const auto = Array.isArray(context.autoSources) ? (context.autoSources as AuthoritySource[]).map((s) => s.url) : [];
+  return [...new Set([...fromEditor, ...auto])];
+}
+
+/** Brief line listing the auto-picked sources; empty when none matched the topic. */
+function autoSourcesLine(context: Record<string, unknown>): string {
+  const auto = Array.isArray(context.autoSources) ? (context.autoSources as AuthoritySource[]) : [];
+  if (auto.length === 0) return "";
+  return `Suggested authoritative sources (cite one or two where they genuinely support a point, using the exact URL):\n${auto.map((s) => `- ${s.label}: ${s.url}`).join("\n")}`;
 }
 
 /** What the SEO analyzer needs to know about the page being written, taken from editor context. */
@@ -128,7 +144,6 @@ function auditContext(context: Record<string, unknown>): SeoAuditContext {
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean),
-    hasSources: sourceUrls(context).length > 0,
   };
 }
 
@@ -171,6 +186,15 @@ export type TaskDef =
       refine?: {
         audit(result: Record<string, unknown>, context: Record<string, unknown>): RefineAudit;
         buildFixBrief(result: Record<string, unknown>, issues: string[], brief: string): string;
+        /** Cheap fix for a draft that is too short: ask for ONLY the missing sections and merge them,
+         *  instead of paying for a full rewrite. */
+        expand?: {
+          missingWords(result: Record<string, unknown>): number;
+          schema: ParsableSchema;
+          responseContract: string;
+          buildBrief(result: Record<string, unknown>, missing: number, brief: string): string;
+          merge(result: Record<string, unknown>, extra: Record<string, unknown>, context: Record<string, unknown>): Record<string, unknown>;
+        };
       };
     };
 
@@ -201,6 +225,20 @@ export function tokenPlan(def: TaskDef, brief: string): { max: number; expected:
 /** Full prompt sent to the model: the (possibly admin-edited) brief + the fixed, hidden format contract. */
 export function buildFullPrompt(def: TaskDef, brief: string): string {
   return `${brief}\n\n${def.responseContract}\n\nFollow every length and format instruction above exactly — if a field asks for multiple sentences, write multiple full sentences, not one. Do not shortcut a field just because a shorter answer would also be valid English.`;
+}
+
+/** Vets links and caps lists on a whole-page draft, then guarantees an outbound source link. */
+function postProcessFullPage(result: Record<string, unknown>, context: Record<string, unknown>): Record<string, unknown> {
+  const links = ctx(context, "internalLinks")
+    .split(/[\s,]+/)
+    .filter((p) => p.startsWith("/"));
+  const urls = sourceUrls(context);
+  const labelled = urls.map((url) => ({
+    url,
+    label: (context.autoSources as AuthoritySource[] | undefined)?.find((a) => a.url === url)?.label ?? url,
+  }));
+  const cleaned = cleanDraft(result as FullPageDraft, links, urls);
+  return ensureSourceLink(cleaned, labelled) as unknown as Record<string, unknown>;
 }
 
 export const TASKS: Record<TaskName, TaskDef> = {
@@ -337,6 +375,7 @@ export const TASKS: Record<TaskName, TaskDef> = {
         `Secondary keywords: ${ctx(context, "secondaryKeywords") || "(none given)"}`,
         `Audience and search intent: ${ctx(context, "audience") || "a buyer comparing providers, ready to evaluate"}`,
         `Internal pages you may link to (use ONLY these paths):\n${ctxOrNone(context, "internalLinks", 2500)}`,
+        autoSourcesLine(context),
         ctx(context, "existingText").trim()
           ? `Existing copy to improve on (keep any true facts it states):\n${ctx(context, "existingText").slice(0, 3500)}`
           : "",
@@ -355,16 +394,23 @@ export const TASKS: Record<TaskName, TaskDef> = {
 }
 Meet the target length given in the brief across sections and FAQs combined; a short page is a failure. Use single quotes inside HTML attributes.`,
     maxOutputTokens: LONG_FORM_MAX_TOKENS,
-    postProcess: (result, context) => {
-      const links = ctx(context, "internalLinks")
-        .split(/[\s,]+/)
-        .filter((p) => p.startsWith("/"));
-      return cleanDraft(result as FullPageDraft, links, sourceUrls(context)) as unknown as Record<string, unknown>;
-    },
+    postProcess: postProcessFullPage,
     // Same analyzer as the editor's SEO sidebar; one targeted rewrite when fixable checks fail.
     refine: {
       audit: (result, context) => refineAudit(result as FullPageDraft, auditContext(context)),
       buildFixBrief: (result, issues, brief) => buildFixBrief(result as FullPageDraft, issues, brief),
+      expand: {
+        missingWords: (result) => missingWords(result as FullPageDraft),
+        schema: expansionSchema,
+        responseContract: EXPANSION_CONTRACT,
+        buildBrief: (result, missing, brief) => buildExpandBrief(result as FullPageDraft, missing, brief),
+        merge: (result, extra, context) =>
+          // Re-run the normal post-processing so new sections are link-vetted and capped like the rest.
+          postProcessFullPage(
+            mergeExpansion(result as FullPageDraft, extra as { sections: FullPageDraft["sections"] }) as unknown as Record<string, unknown>,
+            context,
+          ),
+      },
     },
   },
 };

@@ -7,6 +7,10 @@ import {
   fullPageToBlocks,
   lintDraft,
   refineAudit,
+  ensureSourceLink,
+  missingWords,
+  buildExpandBrief,
+  mergeExpansion,
   sanitizeLinks,
 } from "@/lib/ai/full-page";
 
@@ -136,9 +140,13 @@ describe("SEO audit (same analyzer as the editor sidebar)", () => {
     expect(audit.issues.join("\n")).not.toMatch(/Image alt text|Social share image/);
   });
 
-  it("only asks for outbound links when sources were supplied", () => {
+  it("never spends a model pass on outbound links — they are added locally", () => {
     expect(refineAudit(draft, ctx).issues.join("\n")).not.toMatch(/Outbound links/);
-    expect(refineAudit(draft, { ...ctx, hasSources: true }).issues.join("\n")).toMatch(/Outbound links/);
+    const linked = ensureSourceLink(draft, [{ url: "https://owasp.org/www-project-top-ten/", label: "OWASP Top 10" }]);
+    const html = linked.sections.map((x) => x.bodyHtml).join(" ");
+    expect(html).toContain("<a href='https://owasp.org/www-project-top-ten/'>OWASP Top 10</a>");
+    // Already cited: left alone.
+    expect(ensureSourceLink(linked, [{ url: "https://x.dev/", label: "X" }])).toBe(linked);
   });
 
   it("scores higher once the keyword is in the meta description", () => {
@@ -154,5 +162,45 @@ describe("SEO audit (same analyzer as the editor sidebar)", () => {
     expect(brief).toContain("Primary keyword: crm development");
     expect(brief).toContain("Content length: too short");
     expect(brief).toContain('"heading":"CRM development that fits how you sell"');
+  });
+});
+
+describe("keyword stuffing guidance", () => {
+  it("gives the fix pass a concrete mention count when density is too high", () => {
+    const stuffed = {
+      ...draft,
+      seo: { ...draft.seo, focusKeyword: "crm" },
+      sections: draft.sections.map((s) => ({ ...s, bodyHtml: `<p>${"crm ".repeat(60)}</p>` })),
+    };
+    const { issues } = refineAudit(stuffed, { title: "CRM", focusKeyword: "crm" });
+    expect(issues.some((i) => i.startsWith("Keyword density") && /about \d+ mentions/.test(i))).toBe(true);
+  });
+});
+
+describe("1,000-word minimum", () => {
+  const ctx = { title: "CRM Development", slug: "crm-development", focusKeyword: "crm development", secondaryKeywords: ["custom crm"] };
+  const long = (words: number) => ({
+    ...draft,
+    sections: [{ heading: "Long section", bodyHtml: `<p>${"word ".repeat(words)}</p>` }],
+  });
+
+  it("the editor's length check warns below 1,000 words and passes at 1,000+", () => {
+    const status = (d: typeof draft) => refineAudit(d, ctx).remaining.find((r) => r.id === "contentLength");
+    expect(status(long(650))?.detail).toMatch(/below the 1,000-word minimum/);
+    expect(status(long(1100))).toBeUndefined();
+  });
+
+  it("reports how many words to add, with a margin, and nothing once long enough", () => {
+    expect(missingWords(long(1100))).toBe(0);
+    expect(missingWords(long(500))).toBeGreaterThan(400);
+  });
+
+  it("builds an expand brief that avoids existing headings, and merges the new sections in", () => {
+    const brief = buildExpandBrief(draft, 450, "Primary keyword: crm development");
+    expect(brief).toContain(`- ${draft.sections[0].heading}`);
+    expect(brief).toMatch(/at least 450 words/);
+    const merged = mergeExpansion(draft, { sections: [{ heading: "New", bodyHtml: "<p>x</p>" }] });
+    expect(merged.sections.at(-1)?.heading).toBe("New");
+    expect(merged.sections.length).toBe(draft.sections.length + 1);
   });
 });

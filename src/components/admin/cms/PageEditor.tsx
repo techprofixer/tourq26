@@ -13,6 +13,7 @@ import {
   generateSeoFromContent,
 } from "@/lib/seo-generate";
 import { ImageUploadField } from "@/components/admin/ImageUploadField";
+import { BlockPreviewList } from "@/components/admin/BlogPostPreview";
 import { SerpPreview } from "@/components/admin/SerpPreview";
 import { AiGenerateButton, fullPageExtraFields } from "@/components/admin/AiGenerateButton";
 import {
@@ -25,6 +26,7 @@ import {
 import { SeoAnalysisSidebar } from "@/components/admin/cms/SeoAnalysisSidebar";
 import { Card, Row, SidebarField, StatusPill } from "@/components/admin/EditorPanels";
 import { analyzePageSeo, blocksToSeoInput, summarizeSeoChecks } from "@/lib/seo-analysis";
+import { autoLinkBlocks } from "@/lib/cms/auto-link";
 import { SuggestedLinksBar } from "@/components/admin/cms/SuggestedLinksBar";
 import { BlockListEditor, Icon, ICON } from "@/components/admin/cms/BlockListEditor";
 
@@ -160,6 +162,7 @@ export function PageEditor({
   const [aiWarnings, setAiWarnings] = useState<DraftWarning[]>([]);
   const [aiAudit, setAiAudit] = useState<SeoAuditSummary | null>(null);
   const [sidebarTab, setSidebarTab] = useState<"page" | "seo">("page");
+  const [showPreview, setShowPreview] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
 
   const isLive = status === "PUBLISHED";
@@ -360,7 +363,9 @@ export function PageEditor({
     ) {
       return;
     }
-    setBlocks(fullPageToBlocks(draft));
+    const generated = fullPageToBlocks(draft);
+    setBlocks(generated);
+    void autoLinkFromSite(generated, focusKeyword || targetKeyword || draft.seo.focusKeyword || "");
     if (!metaTitle.trim()) setMetaTitle(draft.seo.metaTitle);
     if (!metaDescription.trim()) setMetaDescription(draft.seo.metaDescription);
     if (!excerpt.trim()) setExcerpt(draft.seo.excerpt);
@@ -373,6 +378,26 @@ export function PageEditor({
     setAiAudit(draft.audit ?? null);
     // Show the live analysis straight away — it's the same scorer the generator just used.
     setSidebarTab("seo");
+  }
+
+  /** Fetches same-domain matches for these blocks and links them into the copy (functional update,
+   *  so edits made while the request is in flight are kept). Silent when nothing matches. */
+  async function autoLinkFromSite(source: CmsBlock[], keyword: string) {
+    try {
+      const params = new URLSearchParams({
+        focusKeyword: keyword,
+        secondary: secondaryKeywords,
+        bodyText: extractTextFromCmsBlocks(source).slice(0, 1000),
+        limit: "8",
+        ...(previewPath ? { excludePath: previewPath } : {}),
+      });
+      const data = await fetch(`/api/admin/cms/link-suggestions?${params.toString()}`).then((r) => r.json());
+      const found: LinkSuggestion[] = Array.isArray(data.suggestions) ? data.suggestions : [];
+      if (found.length === 0) return;
+      setBlocks((prev) => autoLinkBlocks(prev, found, { siteUrl }).blocks);
+    } catch {
+      /* suggestions are a convenience — never block the editor */
+    }
   }
 
   function insertLinkSuggestion(suggestion: LinkSuggestion) {
@@ -468,6 +493,9 @@ export function PageEditor({
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => setShowPreview(true)} className="btn-base btn-outline" title="Preview unsaved content">
+            Preview
+          </button>
           {mode === "edit" && isLive && livePath ? (
             <Link href={livePath} target="_blank" className="btn-base btn-outline inline-flex items-center gap-1.5">
               View
@@ -515,6 +543,34 @@ export function PageEditor({
           </button>
         </div>
       </div>
+
+      {showPreview ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Page preview"
+          className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-8"
+          onClick={() => setShowPreview(false)}
+        >
+          <div className="w-full max-w-3xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex items-center justify-between text-white">
+              <span className="mono-label">PREVIEW · {previewPath} · UNSAVED CONTENT</span>
+              <button type="button" onClick={() => setShowPreview(false)} className="btn-base btn-outline bg-background">
+                Close
+              </button>
+            </div>
+            <article className="rounded-xl border border-border bg-background p-6 text-left text-foreground">
+              <h1 className="font-display text-2xl font-bold">{title || "Untitled page"}</h1>
+              {excerpt ? <p className="mt-3 text-muted-foreground">{excerpt}</p> : null}
+              {blocks.length ? (
+                <BlockPreviewList blocks={blocks} />
+              ) : (
+                <p className="mt-8 text-sm text-muted-foreground">No content blocks yet.</p>
+              )}
+            </article>
+          </div>
+        </div>
+      ) : null}
 
       {error ? (
         <p role="alert" className="mb-4 rounded-md border border-[color:var(--app-destructive)] bg-[color:rgba(220,38,38,0.06)] px-3 py-2 text-[13px] text-[color:var(--app-destructive)]">
@@ -956,6 +1012,7 @@ export function PageEditor({
             suggestions={linkSuggestions}
             loading={linkSuggestionsLoading}
             onInsert={insertLinkSuggestion}
+            onAutoLink={() => setBlocks((prev) => autoLinkBlocks(prev, linkSuggestions ?? [], { siteUrl }).blocks)}
           />
         </div>
       ) : null}

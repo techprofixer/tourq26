@@ -17,6 +17,7 @@ export const GET = withAdmin(async (request: NextRequest) => {
     secondaryKeywords,
     bodyText,
     excludePath,
+    limit: Math.min(Number(searchParams.get("limit")) || 5, 10),
   });
   return NextResponse.json({ suggestions });
 });

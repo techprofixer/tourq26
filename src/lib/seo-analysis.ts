@@ -90,6 +90,9 @@ export function auditLinks(html: string, siteUrl?: string): LinkAudit {
   return { internal, external };
 }
 
+/** Pages shorter than this get a warning; top-ranking pages average 1,000+ words. */
+export const MIN_BODY_WORDS = 1000;
+
 function contentLengthCheck(bodyWords: number): SeoCheck {
   if (bodyWords === 0) {
     return check("contentLength", "Content length", "fail", "No body content yet.", "content");
@@ -103,12 +106,12 @@ function contentLengthCheck(bodyWords: number): SeoCheck {
       "content",
     );
   }
-  if (bodyWords < 600) {
+  if (bodyWords < MIN_BODY_WORDS) {
     return check(
       "contentLength",
       "Content length",
       "warn",
-      `${bodyWords} words — meets the bare minimum; competitive top-ranking pages average 1,000+.`,
+      `${bodyWords} words — below the ${MIN_BODY_WORDS.toLocaleString("en-US")}-word minimum; add about ${MIN_BODY_WORDS - bodyWords} more. Competitive top-ranking pages average 1,000+.`,
       "content",
     );
   }
@@ -117,7 +120,7 @@ function contentLengthCheck(bodyWords: number): SeoCheck {
       "contentLength",
       "Content length",
       "pass",
-      `${bodyWords} words — within the 600-2,500 range typical of comprehensive, top-ranking pages.`,
+      `${bodyWords} words — within the 1,000-2,500 range typical of comprehensive, top-ranking pages.`,
       "content",
     );
   }

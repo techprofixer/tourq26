@@ -25,7 +25,52 @@ export type ExtraField = {
   defaultValue?: string;
   placeholder?: string;
   helpText?: string;
+  /** Click-to-add snippets under a textarea. Each adds one line; clicking again removes it. */
+  suggestions?: string[];
 };
+
+/** Common exclusions, shared by every task with an "Avoid" box. */
+export const AVOID_SUGGESTIONS = [
+  "No pricing or cost figures",
+  "Don't mention competitors",
+  "No statistics or percentages",
+  "No claims about certifications or awards",
+  "No guarantees or promises",
+  "No client names",
+  "No buzzwords or hype",
+];
+
+/** Starter lines for "Facts you may use" — each ends in a colon for the editor to complete. */
+export const FACT_SUGGESTIONS = [
+  "Based in: ",
+  "Services offered: ",
+  "Our process: ",
+  "Tools and technologies: ",
+  "Team size and experience: ",
+  "Industries served: ",
+  "Typical project timeline: ",
+  "Proof points (real projects, results): ",
+];
+
+/** True when the line is already in the value. A "Label:" starter counts once the editor has typed after it. */
+export function hasSuggestion(value: string, line: string): boolean {
+  const want = line.trim();
+  return value.split("\n").some((l) => (want.endsWith(":") ? l.trim().startsWith(want) : l.trim() === want));
+}
+
+/** Adds `line` on its own line, or removes it when it is a plain line already present. A "Label:"
+ *  starter is never removed (the editor may have filled it in) and never duplicated. */
+export function toggleSuggestion(value: string, line: string): string {
+  const lines = value.split("\n");
+  if (line.trim().endsWith(":")) return hasSuggestion(value, line) ? value : addLine(value, line);
+  const at = lines.findIndex((l) => l.trim() === line.trim());
+  if (at >= 0) return lines.filter((_, i) => i !== at).join("\n");
+  return addLine(value, line);
+}
+
+function addLine(value: string, line: string): string {
+  return value.trim() ? `${value.replace(/\s+$/, "")}\n${line}` : line;
+}
 
 /** Keyword / length / avoid controls for the `longFormBody` task. */
 export function longFormExtraFields({
@@ -67,6 +112,7 @@ export function longFormExtraFields({
       label: "Avoid",
       type: "textarea",
       placeholder: "e.g. don't mention pricing, avoid buzzwords like \"revolutionary\", no fabricated stats",
+      suggestions: AVOID_SUGGESTIONS,
     },
   ];
 }
@@ -89,12 +135,14 @@ export function fullPageExtraFields({ words = "1400" }: { words?: string } = {})
       placeholder:
         "Ground truth only: where you're based, services offered, process steps, tools, team size, real proof points. The AI won't invent anything beyond this.",
       helpText: "The more real detail you give, the more specific (and citable) the page becomes.",
+      suggestions: FACT_SUGGESTIONS,
     },
     {
       key: "avoid",
       label: "Avoid",
       type: "textarea",
       placeholder: "e.g. no pricing, don't mention competitors, no claims about certifications",
+      suggestions: AVOID_SUGGESTIONS,
     },
     // Keep this LAST: the server reads every URL after this label as the allowed source list.
     {
@@ -103,7 +151,7 @@ export function fullPageExtraFields({ words = "1400" }: { words?: string } = {})
       type: "textarea",
       placeholder: "One per line, e.g. https://developers.google.com/search/docs/…",
       helpText:
-        "Optional. The SEO check wants an outbound link to an authoritative source; the AI only cites URLs you list here, never ones it invents.",
+        "Optional. Relevant official sources are picked automatically; list your own here to add to them. The AI only cites URLs from these lists, never ones it invents.",
     },
   ];
 }
@@ -186,10 +234,11 @@ export function AiGenerateButton<T = string | Record<string, unknown>>({
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden />
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <DialogPanel
-            className={`w-full rounded-2xl border border-border bg-surface p-6 text-foreground shadow-2xl ${
+            className={`flex max-h-[calc(100dvh-2rem)] w-full flex-col rounded-2xl border border-border bg-surface p-6 text-foreground shadow-2xl ${
               extraFields?.length ? "max-w-2xl" : "max-w-lg"
             }`}
           >
+            <div className="-mr-2 min-h-0 flex-1 overflow-y-auto pr-2">
             <DialogTitle className="font-display text-lg font-semibold">
               {TASK_LABELS[task] ?? "Generate with AI"}
             </DialogTitle>
@@ -228,6 +277,31 @@ export function AiGenerateButton<T = string | Record<string, unknown>>({
                         className="mt-1.5 w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                       />
                     )}
+                    {f.suggestions?.length ? (
+                      <span className="mt-2 flex flex-wrap gap-1.5" aria-label={`${f.label} suggestions`}>
+                        {f.suggestions.map((line) => {
+                          const active = hasSuggestion(extraValues[f.key] ?? "", line);
+                          return (
+                            <button
+                              key={line}
+                              type="button"
+                              aria-pressed={active}
+                              onClick={() =>
+                                setExtraValues((prev) => ({ ...prev, [f.key]: toggleSuggestion(prev[f.key] ?? "", line) }))
+                              }
+                              className={`rounded-full border px-2.5 py-1 text-[12px] transition-colors ${
+                                active
+                                  ? "border-primary/40 bg-primary/10 text-foreground"
+                                  : "border-border bg-background text-muted-foreground hover:text-foreground"
+                              }`}
+                            >
+                              {active ? "✓ " : "+ "}
+                              {line.replace(/:\s*$/, "")}
+                            </button>
+                          );
+                        })}
+                      </span>
+                    ) : null}
                     {f.helpText ? (
                       <span className="mt-1 block text-[12px] text-muted-foreground">{f.helpText}</span>
                     ) : null}
@@ -254,8 +328,9 @@ export function AiGenerateButton<T = string | Record<string, unknown>>({
             {error ? (
               <p className="mt-2 text-[13px] text-[color:var(--app-destructive)]">{error}</p>
             ) : null}
+            </div>
 
-            <div className="mt-5 flex justify-end gap-2">
+            <div className="mt-4 flex shrink-0 justify-end gap-2 border-t border-border/60 pt-4">
               <button
                 type="button"
                 onClick={loading ? cancel : close}

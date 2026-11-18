@@ -29,10 +29,13 @@ export function SuggestedLinksBar({
   suggestions,
   loading,
   onInsert,
+  onAutoLink,
 }: {
   suggestions: LinkSuggestion[] | null;
   loading: boolean;
   onInsert: (suggestion: LinkSuggestion) => void;
+  /** Links the best matches into the copy automatically. */
+  onAutoLink?: () => void;
 }) {
   const [copiedPath, setCopiedPath] = useState<string | null>(null);
 
@@ -55,6 +58,16 @@ export function SuggestedLinksBar({
         <LinkIcon className="h-3.5 w-3.5 text-primary" aria-hidden />
         {loading ? "Scanning…" : "Suggested links"}
       </span>
+      {onAutoLink && suggestions && suggestions.length > 0 ? (
+        <button
+          type="button"
+          className="btn-base btn-primary !px-2.5 !py-1 text-xs"
+          title="Link related pages on the same domain inside the copy"
+          onClick={onAutoLink}
+        >
+          Auto-link
+        </button>
+      ) : null}
       {suggestions?.map((s) => (
         <div
           key={s.path}
