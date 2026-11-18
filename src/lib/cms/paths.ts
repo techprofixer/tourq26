@@ -63,13 +63,10 @@ const RESERVED_PREFIXES = [
 ];
 
 /** Exact paths served by hub / metadata routes (the entity *detail* paths below them are fine).
- *  "/services" is deliberately absent: that hub renders a published CMS page at "/services" if one exists. */
+ *  The five entity hubs (/services, /solutions, /industries, /technologies, /locations) are
+ *  deliberately absent: each renders a published CMS page at its own path if one exists. */
 const RESERVED_EXACT = new Set([
   "/",
-  "/solutions",
-  "/industries",
-  "/technologies",
-  "/locations",
   "/sitemap.xml",
   "/robots.txt",
   "/llms.txt",

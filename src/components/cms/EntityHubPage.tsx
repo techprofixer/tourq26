@@ -5,6 +5,9 @@ import Footer from "@/components/Footer";
 import { getSiteUrl } from "@/lib/site-url";
 import { getEntityCatalogCards, ENTITY_HUB_PATH, type EntityCatalogKind } from "@/lib/entity-catalog";
 import { DEFAULT_OG_IMAGE } from "@/lib/seo";
+import { readSiteContent } from "@/lib/content";
+import { buildPageMetadata } from "@/lib/cms/metadata";
+import { CmsPageView, findPublishedPage } from "@/components/cms/CmsEntityPage";
 
 function pathPrefix(kind: "SOLUTION" | "INDUSTRY" | "TECHNOLOGY" | "LOCATION") {
   return ENTITY_HUB_PATH[kind];
@@ -19,6 +22,9 @@ export function makeHubPage(opts: {
   async function generateMetadata(): Promise<Metadata> {
     const siteUrl = (await getSiteUrl()).replace(/\/$/, "");
     const path = pathPrefix(opts.kind);
+    // A published CMS page at the hub path (Admin → CMS → Pages) owns the SEO metadata too.
+    const cms = await findPublishedPage(path);
+    if (cms) return buildPageMetadata(cms, siteUrl, (await readSiteContent()).siteName);
     return {
       title: opts.title,
       description: opts.description,
@@ -33,6 +39,9 @@ export function makeHubPage(opts: {
   }
 
   async function Page() {
+    const cms = await findPublishedPage(pathPrefix(opts.kind));
+    if (cms) return <CmsPageView page={cms} showRelated={false} />;
+
     const items = await getEntityCatalogCards(opts.kind);
     const prefix = pathPrefix(opts.kind);
 
