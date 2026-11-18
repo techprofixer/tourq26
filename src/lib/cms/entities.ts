@@ -78,6 +78,31 @@ export const SEED_LOCATIONS: SeedEntity[] = [
     name: "Ahmedabad",
     summary: "Software development for Ahmedabad and Gujarat-based businesses.",
   },
+  {
+    slug: "software-development-company-pune",
+    name: "Pune",
+    summary: "Software development for Pune's IT, manufacturing and automotive businesses.",
+  },
+  {
+    slug: "software-development-company-bengaluru",
+    name: "Bengaluru",
+    summary: "Software development for Bengaluru startups, SaaS companies and product teams.",
+  },
+  {
+    slug: "software-development-company-hyderabad",
+    name: "Hyderabad",
+    summary: "Software development for Hyderabad's IT services, life sciences and enterprise teams.",
+  },
+  {
+    slug: "software-development-company-delhi-ncr",
+    name: "Delhi NCR",
+    summary: "Software development for Delhi, Gurugram and Noida businesses.",
+  },
+  {
+    slug: "software-development-company-surat",
+    name: "Surat",
+    summary: "Software development for Surat's textile, diamond and trading businesses.",
+  },
 ];
 
 export const SEED_TECHNOLOGIES: SeedEntity[] = [

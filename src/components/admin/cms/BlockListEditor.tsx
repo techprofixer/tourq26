@@ -651,6 +651,7 @@ function BlockFields({
             <option value="SOLUTION">Solutions</option>
             <option value="INDUSTRY">Industries</option>
             <option value="TECHNOLOGY">Technologies</option>
+            <option value="LOCATION">Locations</option>
           </select>
           <span className="mt-1 block text-xs text-muted-foreground">
             Cards are pulled live from Admin → CMS → Entities — only entries with a

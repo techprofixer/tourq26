@@ -82,7 +82,7 @@ export const entityGridBlockSchema = z.object({
   type: z.literal("entityGrid"),
   id: z.string().min(1),
   /// Which taxonomy table to list — cards are pulled live from Admin → CMS → Entities.
-  kind: z.enum(["SERVICE", "SOLUTION", "INDUSTRY", "TECHNOLOGY"]),
+  kind: z.enum(["SERVICE", "SOLUTION", "INDUSTRY", "TECHNOLOGY", "LOCATION"]),
   eyebrow: z.string().optional(),
   heading: z.string().optional(),
 });
