@@ -1,7 +1,8 @@
 import { z } from "zod";
 import type { CmsBlock } from "@/lib/cms/blocks";
+import { countWords } from "@/lib/blog-server";
 import { TITLE_MAX, DESC_MAX, clampAtWord, stripHtmlToText } from "@/lib/seo-generate";
-import { analyzePageSeo, blocksToSeoInput, type SeoCheck } from "@/lib/seo-analysis";
+import { analyzePageSeo, blocksToSeoInput, MIN_BODY_WORDS, type SeoCheck } from "@/lib/seo-analysis";
 import { slugify } from "@/lib/slug";
 
 /**
@@ -51,6 +52,28 @@ export const fullPageSchema = z.object({
 });
 
 export type FullPageDraft = z.infer<typeof fullPageSchema>;
+
+/**
+ * Guarantees an outbound link without spending a second model pass: when no section already links
+ * out, appends a "Further reading" line citing the approved sources (editor-listed or curated —
+ * never model-invented) to the last section.
+ */
+export function ensureSourceLink(
+  draft: FullPageDraft,
+  sources: { url: string; label: string }[],
+): FullPageDraft {
+  const approved = sources.slice(0, 2);
+  if (approved.length === 0 || draft.sections.length === 0) return draft;
+  if (draft.sections.some((s) => /<a\b[^>]*href\s*=\s*["']https?:\/\//i.test(s.bodyHtml))) return draft;
+  const links = approved.map((x) => `<a href='${x.url}'>${x.label}</a>`).join(", ");
+  const sections = [...draft.sections];
+  const last = sections[sections.length - 1];
+  sections[sections.length - 1] = { ...last, bodyHtml: `${last.bodyHtml}<p>Further reading: ${links}</p>` };
+  return { ...draft, sections };
+}
+
+/** Generated pages are held to this many words (top-ranking pages average 1,000+). */
+export const MIN_PAGE_WORDS = MIN_BODY_WORDS;
 
 /** Paths the model may always link to, even if the DB lookup of published pages is empty. */
 export const ALWAYS_LINKABLE = [
@@ -236,8 +259,6 @@ export type SeoAuditContext = {
   focusKeyword?: string;
   secondaryKeywords?: string[];
   siteUrl?: string;
-  /** True when the editor supplied authoritative URLs the model may cite as outbound links. */
-  hasSources?: boolean;
 };
 
 /** Checks a rewrite can actually fix. Anything else (slug, images, social image) needs a human. */
@@ -297,11 +318,17 @@ export type RefineAudit = {
 export function refineAudit(draft: FullPageDraft, ctx: SeoAuditContext): RefineAudit {
   const checks = auditDraft(draft, ctx);
   const failing = checks.filter((c) => c.status !== "pass");
-  const fixable = failing.filter(
-    (c) => AI_FIXABLE.has(c.id) || (c.id === "externalLinks" && ctx.hasSources),
-  );
+  // Outbound links are not here on purpose: `ensureSourceLink` adds them locally, no rewrite needed.
+  const fixable = failing.filter((c) => AI_FIXABLE.has(c.id));
+  const words = countWords(blocksToSeoInput(fullPageToBlocks(draft)).bodyText);
+  const issues = fixable.map((c) => {
+    if (c.id !== "keywordDensity" || words === 0) return `${c.label}: ${c.detail}`;
+    // A bare percentage doesn't tell a model how much to cut — give it a count and a method.
+    const target = Math.max(2, Math.floor(words * 0.015));
+    return `${c.label}: ${c.detail} Cut the exact primary keyword phrase to about ${target} mentions in total (keep it in the H1, the meta fields and the first 100 words). Rewrite the other mentions with natural variants — 'this service', a pronoun, a shorter or reworded phrase — or just remove them.`;
+  });
   return {
-    issues: fixable.map((c) => `${c.label}: ${c.detail}`),
+    issues,
     passed: checks.length - failing.length,
     total: checks.length,
     remaining: failing.map((c) => ({
@@ -322,6 +349,39 @@ export function buildFixBrief(draft: FullPageDraft, issues: string[], originalBr
     `Audit problems to fix:\n${issues.map((i) => `- ${i}`).join("\n")}`,
     "Return the COMPLETE corrected page in the same JSON shape. Change only what is needed to fix every problem above; keep everything that already passes. Never shorten sections to save space — when more length or keyword coverage is needed, add concrete detail. Keep all facts truthful to the brief.",
   ].join("\n\n");
+}
+
+/** Words in the assembled page — the same measure the editor's Content length check uses. */
+export function draftWordCount(draft: FullPageDraft): number {
+  return countWords(blocksToSeoInput(fullPageToBlocks(draft)).bodyText);
+}
+
+/** How many words a draft is short of the minimum (0 when long enough). */
+export function missingWords(draft: FullPageDraft): number {
+  const words = draftWordCount(draft);
+  return words >= MIN_PAGE_WORDS ? 0 : MIN_PAGE_WORDS - words + 80; // small margin so trimming can't undo it
+}
+
+export const expansionSchema = z.object({ sections: fullPageSchema.shape.sections });
+
+export const EXPANSION_CONTRACT = `Return ONE JSON object: { "sections": [ { "eyebrow": string (2-3 word label), "heading": string, "bodyHtml": string } ] }. Same HTML rules as before (<p>, <ul>, <ol>, <li>, <strong>, <em>, <a>, <h3>; single quotes in attributes).`;
+
+/** Short prompt asking for ONLY the extra sections needed to reach the minimum — far cheaper than rewriting the page. */
+export function buildExpandBrief(draft: FullPageDraft, missing: number, originalBrief: string): string {
+  const count = Math.min(4, Math.max(2, Math.ceil(missing / 230)));
+  return [
+    "A page draft is too short. Write ONLY the additional sections it needs; do not repeat or rewrite what exists.",
+    `Original brief:\n${originalBrief.slice(0, 2500)}`,
+    `Primary keyword: ${draft.seo.focusKeyword || draft.hero.heading}`,
+    `Existing section headings (cover different ground):\n${draft.sections.map((s) => `- ${s.heading}`).join("\n")}`,
+    `Write ${count} new sections of about ${Math.ceil(missing / count)} words each (at least ${missing} words in total). Add concrete, experience-based detail: real scenarios, what to check first, common mistakes, decision criteria. Mention the primary keyword at most once in total; use variants elsewhere. Never invent statistics, clients or prices.`,
+    EXPANSION_CONTRACT,
+  ].join("\n\n");
+}
+
+/** Appends the new sections just before the end (cleanDraft caps and link-vets them afterwards). */
+export function mergeExpansion(draft: FullPageDraft, extra: { sections: FullPageDraft["sections"] }): FullPageDraft {
+  return { ...draft, sections: [...draft.sections, ...extra.sections] };
 }
 
 /** `FullPageDraft` plus the audit the server attached — what the editor receives. */

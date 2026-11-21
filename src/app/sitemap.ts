@@ -14,10 +14,29 @@ import { getResolvedFeatureFlags } from "@/lib/feature-flags";
 // - `changeFrequency` / `priority` are ignored by Google but still read by Bing and others.
 // - `images` produces an image sitemap entry, which helps image search + AI visual results.
 
+// Next.js writes sitemap URLs into the XML verbatim (no escaping), so a raw `&`, space or `<` in any
+// URL makes the whole file unparseable ("Parsing error" in Search Console). Normalize + XML-escape here.
+function xmlSafeUrl(raw: string): string | undefined {
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return undefined;
+    return u.href
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "%3C")
+      .replace(/>/g, "%3E")
+      .replace(/"/g, "%22")
+      .replace(/'/g, "%27");
+  } catch {
+    return undefined;
+  }
+}
+
 function absoluteImage(baseUrl: string, src?: string | null): string[] | undefined {
   const s = src?.trim();
   if (!s) return undefined;
-  return [/^https?:\/\//i.test(s) ? s : `${baseUrl}${s.startsWith("/") ? "" : "/"}${s}`];
+  const abs = /^https?:\/\//i.test(s) ? s : `${baseUrl}${s.startsWith("/") ? "" : "/"}${s}`;
+  const safe = xmlSafeUrl(abs);
+  return safe ? [safe] : undefined;
 }
 
 function priorityForCmsType(type: string): number {
@@ -183,8 +202,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...blogUrls,
     ...techNewsUrls,
   ]) {
-    if (seen.has(entry.url)) continue;
-    seen.add(entry.url);
+    const safeUrl = xmlSafeUrl(entry.url);
+    if (!safeUrl) continue;
+    if (seen.has(safeUrl)) continue;
+    entry.url = safeUrl;
+    seen.add(safeUrl);
     // Drop undefined optional keys so the XML has no empty <lastmod>/<image:image> nodes.
     if (!entry.lastModified) delete entry.lastModified;
     if (!entry.images) delete entry.images;

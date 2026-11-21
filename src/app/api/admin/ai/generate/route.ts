@@ -12,6 +12,7 @@ import { TASKS, buildFullPrompt, tokenPlan, type TaskName } from "@/lib/ai/tasks
 import type { AiStreamEvent, AiUsage } from "@/lib/ai/progress";
 import { readBrandContent } from "@/lib/brand-content";
 import { prisma, withDbTimeout } from "@/lib/db";
+import { pickAuthoritySources } from "@/lib/ai/authority-sources";
 import { ALWAYS_LINKABLE } from "@/lib/ai/full-page";
 
 /** Published CMS page paths (plus the always-valid hubs), excluding the page being written. */
@@ -50,6 +51,13 @@ export const POST = withAdmin(async (request: NextRequest) => {
   if (task === "fullPage") {
     // Real, published internal URLs — the only links the model may use (also re-checked in postProcess).
     context.internalLinks = await listLinkablePaths(String(context.path ?? ""));
+    // Curated outbound references matched to the topic — the model never chooses its own external URLs.
+    context.autoSources = pickAuthoritySources(
+      [context.title, context.focusKeyword, context.secondaryKeywords, context.pageType, context.path, String(context.existingText ?? "").slice(0, 1500)]
+        .flat()
+        .filter((v): v is string => typeof v === "string")
+        .join(" "),
+    );
   }
   const def = TASKS[task];
   const defaultBrief = def.buildBrief(context);
@@ -83,7 +91,10 @@ export const POST = withAdmin(async (request: NextRequest) => {
           progress.onEvent?.(event);
         }
       : undefined;
-    const run = (taskPrompt: string, extra: AiProgressOptions = {}) =>
+    const run = (
+      taskPrompt: string,
+      extra: AiProgressOptions & { schema?: typeof def.schema; shapeHint?: string; maxOutputTokens?: number } = {},
+    ) =>
       generateFieldObject({
         system,
         prompt: taskPrompt,
@@ -98,8 +109,32 @@ export const POST = withAdmin(async (request: NextRequest) => {
     const hookContext = { ...context, __brief: brief };
     const post = (r: Record<string, unknown>) => (def.postProcess ? def.postProcess(r, hookContext) : r);
 
-    const first = post(await run(prompt));
+    let first = post(await run(prompt));
     if (!def.refine) return first;
+
+    // Too short? Ask for just the missing sections (a few hundred tokens) rather than rewriting the page.
+    const expand = def.refine.expand;
+    const missing = expand ? expand.missingWords(first) : 0;
+    if (expand && missing > 0) {
+      progress?.onEvent?.({
+        type: "phase",
+        phase: "optimizing",
+        expectedOutputTokens: produced + Math.round(missing * 2.4),
+        detail: `Adding about ${missing} words`,
+      });
+      try {
+        const extra = await run(expand.buildBrief(first, missing, brief), {
+          schema: expand.schema,
+          shapeHint: expand.responseContract,
+          maxOutputTokens: Math.min(3500, Math.round(missing * 2.6) + 400),
+          tokenOffset: produced,
+          phase: "optimizing",
+        });
+        first = expand.merge(first, extra as Record<string, unknown>, hookContext);
+      } catch (err) {
+        if (progress?.signal?.aborted) throw err;
+      }
+    }
 
     // Score the draft with the same analyzer as the editor's SEO sidebar; if fixable checks fail,
     // spend ONE more pass on them and keep the second draft only if it truly scores higher.
@@ -118,7 +153,8 @@ export const POST = withAdmin(async (request: NextRequest) => {
         const fixPrompt = buildFullPrompt(def, def.refine.buildFixBrief(first, before.issues, brief));
         const second = post(await run(fixPrompt, { tokenOffset: produced, phase: "optimizing" }));
         const after = def.refine.audit(second, hookContext);
-        if (after.passed > before.passed) {
+        // Keep the rewrite when it scores higher, or ties while clearing some of the problems.
+        if (after.passed > before.passed || (after.passed === before.passed && after.issues.length < before.issues.length)) {
           best = second;
           bestAudit = after;
           optimized = true;

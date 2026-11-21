@@ -79,6 +79,16 @@ function BlockPreview({ block }: { block: CmsBlock }) {
           ) : null}
         </>
       );
+    case "hero":
+      return (
+        <>
+          {block.subheading ? <p className="text-muted-foreground">{block.subheading}</p> : null}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {block.primaryCtaLabel ? <span className="btn-base btn-primary inline-flex">{block.primaryCtaLabel}</span> : null}
+            {block.secondaryCtaLabel ? <span className="btn-base btn-outline inline-flex">{block.secondaryCtaLabel}</span> : null}
+          </div>
+        </>
+      );
     case "entityGrid":
       return (
         <p className="text-sm text-muted-foreground">
@@ -88,6 +98,25 @@ function BlockPreview({ block }: { block: CmsBlock }) {
     default:
       return null;
   }
+}
+
+/** Labelled, ordered block list shared by the blog and CMS page previews. */
+export function BlockPreviewList({ blocks }: { blocks: CmsBlock[] }) {
+  return (
+    <>
+      {blocks.map((block) => (
+        <section key={block.id} className="mt-8 border-t border-border/50 pt-8">
+          <p className="mono-label text-muted-foreground">
+            {(BLOCK_TYPE_OPTIONS.find((o) => o.type === block.type)?.label ?? block.type).toUpperCase()}
+          </p>
+          {"heading" in block && block.heading ? (
+            <h2 className="mb-3 mt-2 font-display text-xl font-semibold text-foreground">{block.heading}</h2>
+          ) : null}
+          <BlockPreview block={block} />
+        </section>
+      ))}
+    </>
+  );
 }
 
 export function BlogPostPreview({
@@ -122,17 +151,7 @@ export function BlogPostPreview({
         />
       ) : null}
       <Html html={bodyHtml} className="mt-8 border-t border-border/50 pt-8" />
-      {blocks.map((block) => (
-        <section key={block.id} className="mt-8 border-t border-border/50 pt-8">
-          <p className="mono-label text-muted-foreground">
-            {(BLOCK_TYPE_OPTIONS.find((o) => o.type === block.type)?.label ?? block.type).toUpperCase()}
-          </p>
-          {"heading" in block && block.heading ? (
-            <h2 className="mb-3 mt-2 font-display text-xl font-semibold text-foreground">{block.heading}</h2>
-          ) : null}
-          <BlockPreview block={block} />
-        </section>
-      ))}
+      <BlockPreviewList blocks={blocks} />
     </article>
   );
 }
