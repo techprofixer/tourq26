@@ -3,7 +3,7 @@
  *
  * - Public pages are statically generated (ISR), so they can't carry a per-request nonce;
  *   their policy (set in next.config.ts) allows inline scripts but locks every *origin* down:
- *   scripts only from us + Meta Pixel, network calls only to us + Meta, no plugins, no
+ *   scripts only from us + Meta Pixel + Google tag, network calls only to us + Meta + GA4, no plugins, no
  *   foreign framing, no <base> or form hijacking.
  * - Admin pages are always rendered per request (they read the session cookie), so the proxy
  *   gives them a strict nonce + 'strict-dynamic' policy: no inline script runs unless Next.js
@@ -12,13 +12,21 @@
  * Adding a third-party script/embed? Add its origin to the matching list below.
  */
 const ORIGINS = {
-  script: ["https://connect.facebook.net"],
+  script: ["https://connect.facebook.net", "https://www.googletagmanager.com"],
   style: ["https://fonts.googleapis.com"],
   font: ["https://fonts.gstatic.com"],
   // `https:` — chat replies and CMS content may embed images from arbitrary hosts.
   img: ["https:"],
   media: ["https://res.cloudinary.com"],
-  connect: ["https://www.facebook.com", "https://connect.facebook.net"],
+  connect: [
+    "https://www.facebook.com",
+    "https://connect.facebook.net",
+    // GA4: collection endpoints (incl. regional ones) + the gtag loader.
+    "https://www.google-analytics.com",
+    "https://*.google-analytics.com",
+    "https://*.analytics.google.com",
+    "https://*.googletagmanager.com",
+  ],
   frame: ["https://www.youtube-nocookie.com", "https://www.youtube.com"],
 };
 
