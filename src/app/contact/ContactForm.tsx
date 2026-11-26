@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import { MAX_CONTACT_MESSAGE_LENGTH } from "@/lib/constants";
 import { readStoredUtmParams } from "@/lib/utm";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
+import { track } from "@/lib/analytics";
 import WhatsAppIcon from "@/components/WhatsAppIcon";
 import {
   CONTACT_CATEGORIES,
@@ -129,6 +130,7 @@ export default function ContactForm({
     if (!url) return sendEmail();
     // Must happen synchronously inside the click so popup blockers allow it.
     window.open(url, "_blank", "noopener,noreferrer");
+    track("lead_submitted", { method: "whatsapp", form: "contact" });
     setWaLink(url);
     setStatus("wa-opened");
     // Also keep a record when we have an email (best-effort; never blocks the WhatsApp hand-off).
@@ -152,6 +154,7 @@ export default function ContactForm({
         );
         return;
       }
+      track("lead_submitted", { method: "email", form: "contact" });
       setStatus("email-sent");
     } catch {
       setStatus("error");

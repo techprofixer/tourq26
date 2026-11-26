@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * Minimal analytics event dispatch — this repo has no analytics backend wired up yet (no GA4/
- * Segment/PostHog). `track()` pushes to `window.dataLayer` (the de facto standard queue GTM/GA4
- * consume) when present and no-ops otherwise, so events are captured the moment a backend is
- * connected without any call site changes.
+ * Analytics event dispatch. When GA4 is installed (src/components/GoogleAnalytics.tsx) events go to
+ * `window.gtag('event', …)`; otherwise they are queued on `window.dataLayer` so a later-loaded tag
+ * manager still sees them. `page_view` is never forwarded to gtag because GA4 already records page
+ * views itself (config + Enhanced Measurement) and a manual one would double-count.
  */
 
 export const ANALYTICS_EVENTS = [
@@ -25,20 +25,20 @@ export const ANALYTICS_EVENTS = [
   "audit_form_complete",
   "lead_submitted",
   "whatsapp_click",
+  "email_click",
+  "phone_click",
   "booking_click",
   "video_demo_play",
 ] as const;
 
 export type AnalyticsEvent = (typeof ANALYTICS_EVENTS)[number];
 
-declare global {
-  interface Window {
-    dataLayer?: unknown[];
-  }
-}
-
 export function track(event: AnalyticsEvent, params?: Record<string, unknown>): void {
   if (typeof window === "undefined") return;
+  if (typeof window.gtag === "function") {
+    if (event !== "page_view") window.gtag("event", event, params);
+    return;
+  }
   window.dataLayer = window.dataLayer ?? [];
   window.dataLayer.push({ event, ...params });
 }

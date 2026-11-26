@@ -5,6 +5,8 @@ import { readSiteContent } from "@/lib/content";
 import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 import FloatingChatWidget from "@/components/FloatingChatWidget";
 import MetaPixel from "@/components/MetaPixel";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
+import AnalyticsClickTracker from "@/components/AnalyticsClickTracker";
 import UtmCapture from "@/components/UtmCapture";
 import { isFeatureEnabled } from "@/lib/feature-flags";
 import { readBrandContent } from "@/lib/brand-content";
@@ -158,6 +160,8 @@ export default async function RootLayout({
         <JsonLd data={organizationJsonLd} />
         <JsonLd data={websiteJsonLd} />
         <MetaPixel />
+        <GoogleAnalytics />
+        <AnalyticsClickTracker />
         <UtmCapture />
         {children}
         {showWhatsApp ? <FloatingWhatsApp /> : null}
