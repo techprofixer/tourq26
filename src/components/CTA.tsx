@@ -32,11 +32,12 @@ export default function CTA({
   ctaFootnote,
 }: CTAProps) {
   return (
-    <section className="hero-band border-t border-[var(--brand-hairline-on-dark)]">
+    <section className="hero-band hero-grid border-t border-[var(--brand-hairline-on-dark)]">
+      <div className="hero-orb hero-orb-a" aria-hidden />
       <div className="relative z-10 mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-12 lg:gap-12 lg:px-8 lg:py-[80px]">
         <div className="lg:col-span-7">
           <p className="mono-eyebrow text-white/55">{ctaEyebrow}</p>
-          <h2 className="display-xl mt-4 max-w-[20ch] text-white">
+          <h2 className="display-xxl mt-4 max-w-[18ch] text-white">
             {ctaHeading}
           </h2>
           <p className="mt-5 max-w-xl text-[17px] leading-[1.5] text-white/65">
@@ -45,10 +46,10 @@ export default function CTA({
         </div>
         <div className="flex flex-col items-start gap-4 lg:col-span-5 lg:items-end lg:justify-center">
           <div className="flex flex-wrap items-center gap-3">
-            <Link href={ctaPrimaryHref} className="btn-base btn-white">
-              {ctaPrimaryLabel}
+            <Link href={ctaPrimaryHref} className="btn-base btn-mint btn-shine">
+              {ctaPrimaryLabel} <span aria-hidden>→</span>
             </Link>
-            <Link href={ctaSecondaryHref} className="btn-base btn-mint">
+            <Link href={ctaSecondaryHref} className="btn-base btn-white">
               {ctaSecondaryLabel}
             </Link>
           </div>

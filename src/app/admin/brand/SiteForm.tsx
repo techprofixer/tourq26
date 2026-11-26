@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { SiteContent } from "@/lib/content";
+import type { SiteContent, OrgProfile } from "@/lib/content";
+import { organizationJsonLd } from "@/lib/seo";
 import { AiGenerateButton } from "@/components/admin/AiGenerateButton";
 import { ADMIN_INPUT_CLASS } from "@/components/admin/form-styles";
 
@@ -350,6 +351,69 @@ export function SiteForm({
             positioning, differentiators, pricing model, preferred brand spelling.
           </p>
         </div>
+      </section>
+
+      <section className="card-flat space-y-4">
+        <div>
+          <h2 className="display-sm text-foreground">Organization schema</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Facts behind the <code className="rounded bg-muted px-1 font-mono text-[11px]">Organization</code> JSON-LD on every
+            page — what Google&rsquo;s knowledge panel and AI assistants use to describe the business. Blank fields are left
+            out. Only publish details you want public.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {(
+            [
+              ["legalName", "Legal name", "Torq Studio Pvt. Ltd."],
+              ["foundingYear", "Founded (year)", "2019"],
+              ["email", "Public contact email", "connect@torqstudio.com"],
+              ["phone", "Public phone (international)", "+91 …"],
+              ["streetAddress", "Street address", ""],
+              ["locality", "City", "Mumbai"],
+              ["region", "State / region", "Maharashtra"],
+              ["postalCode", "Postal code", ""],
+              ["country", "Country (ISO code)", "IN"],
+            ] as [keyof OrgProfile, string, string][]
+          ).map(([key, label, ph]) => (
+            <div key={key}>
+              <label className="block text-sm font-medium text-foreground/90">{label}</label>
+              <input
+                className={ADMIN_INPUT_CLASS}
+                value={data.org[key] as string}
+                placeholder={ph}
+                onChange={(e) => update("org", { ...data.org, [key]: e.target.value })}
+              />
+            </div>
+          ))}
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-foreground/90">Expertise / topics (<code className="rounded bg-muted px-1 font-mono text-xs">knowsAbout</code>) — one per line</label>
+          <textarea
+            rows={4}
+            className={ADMIN_INPUT_CLASS}
+            value={data.org.knowsAbout.join("\n")}
+            onChange={(e) => update("org", { ...data.org, knowsAbout: e.target.value.split("\n").map((t) => t.trim()).filter(Boolean) })}
+          />
+        </div>
+        <details className="rounded-lg border border-border bg-muted/20 p-3">
+          <summary className="mono-label cursor-pointer text-muted-foreground">PREVIEW GENERATED JSON-LD</summary>
+          <pre className="mt-3 max-h-72 overflow-auto rounded-md bg-background p-3 text-[12px] leading-relaxed">
+            {JSON.stringify(
+              organizationJsonLd({
+                siteUrl: data.siteUrl,
+                siteName: data.siteName,
+                description: data.defaultDescription,
+                logo: `${data.siteUrl.replace(/\/$/, "")}/your-logo.png`,
+                sameAs: data.sameAs,
+                org: data.org,
+              }),
+              null,
+              2,
+            )}
+          </pre>
+          <p className="mt-2 text-xs text-muted-foreground">The logo URL comes from Brand → Logo at render time.</p>
+        </details>
       </section>
 
       <section className="card-flat space-y-4">

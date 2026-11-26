@@ -1,4 +1,7 @@
 import type { HomeContent } from "@/lib/home-content";
+import CountUp from "@/components/motion/CountUp";
+import Reveal from "@/components/motion/Reveal";
+import SpotlightGrid from "@/components/motion/SpotlightGrid";
 
 /**
  * Why-us research band (DESIGN.md → research-band-dark + research-card).
@@ -20,7 +23,7 @@ export default function WhyChooseUs({
   return (
     <section
       id="why-us"
-      className="band-dark"
+      className="band-dark relative overflow-hidden"
       aria-labelledby="why-us-heading"
     >
       <div className="mx-auto w-full max-w-[1280px] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-[80px]">
@@ -36,23 +39,24 @@ export default function WhyChooseUs({
           </p>
         </header>
 
-        <ul className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {whyUsItems.map((item) => (
-            <li
-              key={item.title}
-              className="card-flat-on-dark card-hover flex h-full flex-col"
-            >
+        <SpotlightGrid className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {whyUsItems.map((item, i) => (
+            <li key={item.title}>
+              <Reveal delay={i * 90} className="h-full">
+              <div className="card-flat-on-dark card-hover spotlight-card flex h-full flex-col">
               <p className="mono-eyebrow text-white/55">{item.eyebrow}</p>
-              <p className="stat-number mt-6 text-[44px] leading-none text-white">
-                {item.stat}
+              <p className="stat-number brand-gradient-text mt-6 text-[56px] leading-none">
+                <CountUp value={item.stat} />
               </p>
               <h3 className="display-md mt-6 text-white">{item.title}</h3>
               <p className="mt-3 text-[15px] leading-relaxed text-white/65">
                 {item.description}
               </p>
+              </div>
+              </Reveal>
             </li>
           ))}
-        </ul>
+        </SpotlightGrid>
       </div>
     </section>
   );

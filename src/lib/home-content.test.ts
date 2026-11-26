@@ -20,3 +20,64 @@ describe("isOfferBannerLive", () => {
     expect(isOfferBannerLive({ ...base, offerBannerEndsAt: "soon" })).toBe(true);
   });
 });
+
+import {
+  customHomeJsonLd,
+  getDefaultHomeExtras,
+  parseHomeExtras,
+  validateJsonLdText,
+} from "@/lib/home-content";
+
+describe("parseHomeExtras", () => {
+  it("returns defaults for missing / non-object input", () => {
+    const d = getDefaultHomeExtras();
+    expect(parseHomeExtras(null)).toEqual(d);
+    expect(parseHomeExtras("nope")).toEqual(d);
+    expect(parseHomeExtras([])).toEqual(d);
+  });
+  it("keeps valid stored values and falls back per-field on bad ones", () => {
+    const out = parseHomeExtras({
+      processHeading: "Our process",
+      processEnabled: false,
+      proofStats: [{ value: "9", label: "Nine" }],
+      processSteps: "garbage",
+      seoMetaTitle: "Custom title",
+      faqItems: [{ question: "Q?", answer: "A." }],
+    });
+    expect(out.processHeading).toBe("Our process");
+    expect(out.processEnabled).toBe(false);
+    expect(out.proofStats).toEqual([{ value: "9", label: "Nine" }]);
+    expect(out.processSteps).toEqual(getDefaultHomeExtras().processSteps);
+    expect(out.seoMetaTitle).toBe("Custom title");
+    expect(out.faqItems).toHaveLength(1);
+  });
+  it("treats blank headings as 'use default' but allows blank SEO overrides", () => {
+    const out = parseHomeExtras({ processHeading: "  ", seoMetaTitle: "" });
+    expect(out.processHeading).toBe(getDefaultHomeExtras().processHeading);
+    expect(out.seoMetaTitle).toBe("");
+  });
+  it("an empty stats/steps list falls back to defaults, but an empty FAQ list stays empty (auto mode)", () => {
+    const out = parseHomeExtras({ proofStats: [], processSteps: [], faqItems: [] });
+    expect(out.proofStats).toEqual(getDefaultHomeExtras().proofStats);
+    expect(out.processSteps).toEqual(getDefaultHomeExtras().processSteps);
+    expect(out.faqItems).toEqual([]);
+  });
+});
+
+describe("validateJsonLdText / customHomeJsonLd", () => {
+  it("accepts blank, objects and arrays of objects", () => {
+    expect(validateJsonLdText("")).toBeNull();
+    expect(validateJsonLdText('{"@type":"Thing"}')).toBeNull();
+    expect(validateJsonLdText('[{"@type":"Thing"},{"@type":"Other"}]')).toBeNull();
+  });
+  it("rejects malformed JSON and non-object payloads", () => {
+    expect(validateJsonLdText("{oops")).toMatch(/Invalid JSON/);
+    expect(validateJsonLdText("[1,2]")).toMatch(/object/);
+    expect(validateJsonLdText('"str"')).toMatch(/object/);
+    expect(validateJsonLdText("[]")).toMatch(/object/);
+  });
+  it("customHomeJsonLd never throws and returns objects only", () => {
+    expect(customHomeJsonLd("{oops")).toEqual([]);
+    expect(customHomeJsonLd('{"@type":"Thing"}')).toEqual([{ "@type": "Thing" }]);
+  });
+});

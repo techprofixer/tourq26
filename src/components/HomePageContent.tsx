@@ -18,7 +18,7 @@ export default function HomePageContent() {
       <div className="mx-auto w-full max-w-[1280px] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-[80px]">
         <header className="grid gap-6 lg:grid-cols-12 lg:gap-12">
           <div className="lg:col-span-4">
-            <p className="mono-eyebrow text-muted-foreground">HOW WE WORK</p>
+            <p className="mono-eyebrow text-muted-foreground">ABOUT THE STUDIO</p>
             <h2 id="homepage-about-heading" className="display-xl mt-4 text-foreground">
               Production work with product and engineering teams.
             </h2>

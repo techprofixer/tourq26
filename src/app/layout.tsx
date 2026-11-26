@@ -10,7 +10,7 @@ import { isFeatureEnabled } from "@/lib/feature-flags";
 import { readBrandContent } from "@/lib/brand-content";
 import { buildThemeVars, themeFontSlugs, themeVarsToCss } from "@/lib/theme";
 import JsonLd from "@/components/JsonLd";
-import { INDEXABLE_ROBOTS, organizationId, websiteId } from "@/lib/seo";
+import { INDEXABLE_ROBOTS, organizationId, websiteId, organizationJsonLd as organizationJsonLdFor } from "@/lib/seo";
 
 // Display sans — closest open-source match to the brand's custom "The Future"
 // face (DESIGN.md → typography). Inter at 400/500 with negative tracking is
@@ -114,25 +114,14 @@ export default async function RootLayout({
   const themeCss = themeVarsToCss(buildThemeVars(brand));
   const googleFontsSlugs = themeFontSlugs(brand);
 
-  const organizationJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    "@id": organizationId(siteUrl),
-    name: site.siteName,
-    url: siteUrl,
+  const organizationJsonLd = organizationJsonLdFor({
+    siteUrl,
+    siteName: site.siteName,
     description: site.defaultDescription,
-    areaServed: { "@type": "Country", name: "India" },
-    address: { "@type": "PostalAddress", addressLocality: "Mumbai", addressCountry: "IN" },
-    knowsAbout: [
-      "Mobile app development",
-      "Web development",
-      "AI integration",
-      "Custom CRM development",
-      "Technical consulting",
-    ],
     logo: brand.logoUrl || `${siteUrl}/opengraph-image`,
-    ...(site.sameAs?.length ? { sameAs: site.sameAs } : {}),
-  };
+    sameAs: site.sameAs,
+    org: site.org,
+  });
 
   const websiteJsonLd = {
     "@context": "https://schema.org",

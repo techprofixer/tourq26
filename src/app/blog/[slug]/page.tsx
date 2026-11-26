@@ -8,7 +8,7 @@ import JsonLd from "@/components/JsonLd";
 import { publishedBlogPosts, readBlogPosts, readSiteContent } from "@/lib/content";
 import { getSiteUrl } from "@/lib/site-url";
 import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
-import { blogPostingJsonLd, breadcrumbListJsonLd, faqPageJsonLd } from "@/lib/seo";
+import { blogPostingJsonLd, breadcrumbListJsonLd, faqPageJsonLd, seoTitle, fitDescription } from "@/lib/seo";
 import { stripHtmlToText } from "@/lib/seo-generate";
 import { BlockRenderer } from "@/components/cms/BlockRenderer";
 import { BlogRelatedPosts } from "@/components/blog/BlogRelatedPosts";
@@ -20,6 +20,7 @@ import {
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 import { RelatedContentSection } from "@/components/marketing/RelatedContentSection";
 import { getRelatedContentGroups } from "@/lib/related-links";
+import CategoryContact from "@/components/CategoryContact";
 
 // Safety net: on-demand revalidation covers CMS/site-setting edits, but this bounds
 // staleness to an hour even if a revalidatePath call is ever missed.
@@ -48,8 +49,8 @@ export async function generateMetadata({
   const baseUrl = site.siteUrl.replace(/\/$/, "");
   const ogImage = post.coverImage?.trim() || `/blog/${post.slug}/opengraph-image`;
   return {
-    title: metaTitle,
-    description: post.description,
+    title: seoTitle(metaTitle, site.siteName),
+    description: fitDescription(post.description),
     alternates: { canonical: `${baseUrl}/blog/${post.slug}` },
     openGraph: {
       title: `${metaTitle} | ${site.siteName} Blog`,
@@ -291,6 +292,7 @@ export default async function BlogPostPage({
             </div>
           </section>
         </article>
+        <CategoryContact category="blog" pageTitle={post.title} path={`/blog/${post.slug}`} />
       </main>
       <Footer />
     </div>

@@ -1,4 +1,4 @@
-import Image from "next/image";
+import Reveal from "@/components/motion/Reveal";
 
 export type TestimonialItem = {
   id?: string;
@@ -40,14 +40,19 @@ const defaultTestimonials: TestimonialItem[] = [
   },
 ];
 
-type Props = { items?: TestimonialItem[] };
+type Props = { items?: TestimonialItem[]; eyebrow?: string; heading?: string; intro?: string };
 
 /**
  * Testimonials (DESIGN.md → testimonial-card).
  * Light band, 3-up of hairline-bordered cards. Each card has a quote, a mono
  * "result" caption, and a portrait + display-md name row at the bottom.
  */
-export default function Testimonials({ items }: Props) {
+export default function Testimonials({
+  items,
+  eyebrow = "CLIENT VOICE",
+  heading = "Teams that shipped with us.",
+  intro = "Founders, CTOs, and operations leads on what changed in their stack after we shipped — and what they kept.",
+}: Props) {
   const testimonials = items?.length ? items : defaultTestimonials;
   return (
     <section
@@ -58,33 +63,39 @@ export default function Testimonials({ items }: Props) {
       <div className="mx-auto w-full max-w-[1280px] px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-[80px]">
         <header className="grid gap-6 lg:grid-cols-12">
           <div className="lg:col-span-7">
-            <p className="mono-eyebrow text-muted-foreground">CLIENT VOICE</p>
+            <p className="mono-eyebrow text-muted-foreground">{eyebrow}</p>
             <h2 id="testimonials-heading" className="display-xl mt-4 text-foreground">
-              Engineering partners build on Torq Studio.
+              {heading}
             </h2>
           </div>
           <p className="text-[16px] leading-[1.5] text-muted-foreground lg:col-span-5 lg:self-end">
-            Founders, CTOs, and operations leads on what changed in their stack after
-            we shipped — and what they kept.
+            {intro}
           </p>
         </header>
 
         <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {testimonials.map((t) => (
-            <li key={t.id ?? t.name} className="card-flat card-hover flex h-full flex-col">
-              <p className="mono-eyebrow text-muted-foreground">{t.result.toUpperCase()}</p>
-              <blockquote className="mt-5 flex-1 text-[16px] leading-[1.5] tracking-[-0.005em] text-foreground">
+          {testimonials.map((t, i) => (
+            <li key={t.id ?? t.name}>
+              <Reveal delay={i * 90} className="h-full">
+              <div className="card-flat card-hover flex h-full flex-col">
+              <p className="text-[15px] tracking-[0.15em] text-[var(--brand-mint)]" aria-label={`${t.rating} out of 5`}>
+                {"★".repeat(Math.max(0, Math.min(5, t.rating || 5)))}
+              </p>
+              <blockquote className="mt-4 flex-1 text-[16px] leading-[1.5] tracking-[-0.005em] text-foreground">
                 &ldquo;{t.quote}&rdquo;
               </blockquote>
               <div className="mt-6 flex items-center gap-4 border-t border-hairline pt-5">
-                <Image
-                  src="/images/avatar-placeholder.svg"
-                  alt=""
-                  width={44}
-                  height={44}
-                  className="h-11 w-11 shrink-0 rounded-[var(--radius-sm)] border border-hairline object-cover"
-                  unoptimized
-                />
+                <span
+                  aria-hidden
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--brand-canvas-dark)] text-[14px] font-medium text-white"
+                >
+                  {t.name
+                    .split(/\s+/)
+                    .map((w) => w[0])
+                    .slice(0, 2)
+                    .join("")
+                    .toUpperCase()}
+                </span>
                 <div className="min-w-0">
                   <p className="display-sm truncate text-foreground">{t.name}</p>
                   <p className="mono-label truncate text-muted-foreground">
@@ -92,6 +103,9 @@ export default function Testimonials({ items }: Props) {
                   </p>
                 </div>
               </div>
+              <p className="mono-label mt-4 text-muted-foreground">RESULT · {t.result.toUpperCase()}</p>
+              </div>
+              </Reveal>
             </li>
           ))}
         </ul>

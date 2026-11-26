@@ -603,12 +603,273 @@ textarea:focus-visible {
   animation-delay: 0.4s;
 }
 
+/* -------------------------------------------------------------------------- */
+/* Homepage motion system                                                     */
+/* -------------------------------------------------------------------------- */
+/* Only the "shown" state transitions, so adding .reveal-hidden snaps instantly (no flash-out). */
+.reveal-hidden {
+  opacity: 0;
+  transform: translateY(28px);
+}
+.reveal-shown {
+  opacity: 1;
+  transform: none;
+  transition: opacity 0.7s cubic-bezier(0.2, 0, 0, 1), transform 0.7s cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* Hero / CTA ambience: faint engineering grid + drifting colour orbs */
+.hero-grid::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 30%, #000 30%, transparent 75%);
+  pointer-events: none;
+  z-index: 0;
+}
+.hero-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  pointer-events: none;
+  z-index: 0;
+  animation: orb-drift 18s ease-in-out infinite;
+}
+.hero-orb-a {
+  width: 460px;
+  height: 460px;
+  right: -80px;
+  top: -120px;
+  background: rgba(47, 99, 184, 0.55);
+}
+.hero-orb-b {
+  width: 380px;
+  height: 380px;
+  left: -100px;
+  bottom: -140px;
+  background: rgba(255, 209, 0, 0.22);
+  animation-delay: -9s;
+}
+@keyframes orb-drift {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(-40px, 30px, 0) scale(1.12); }
+}
+
+.pulse-dot {
+  position: relative;
+  display: inline-block;
+  height: 7px;
+  width: 7px;
+  border-radius: 9999px;
+  background: #22c55e;
+}
+.pulse-dot::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: inherit;
+  animation: pulse-ring 1.8s ease-out infinite;
+}
+@keyframes pulse-ring {
+  from { transform: scale(1); opacity: 0.7; }
+  to { transform: scale(3.2); opacity: 0; }
+}
+
+.float-slow { animation: float-y 7s ease-in-out infinite; }
+.float-fast { animation: float-y 5s ease-in-out infinite reverse; }
+@keyframes float-y {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.pipeline-bar {
+  background: var(--brand-gradient);
+  width: 0;
+  animation: pipeline-fill 1.4s cubic-bezier(0.2, 0, 0, 1) forwards;
+}
+@keyframes pipeline-fill {
+  to { width: var(--w); }
+}
+
+.rotating-word {
+  display: inline-block;
+  animation: word-in 0.45s cubic-bezier(0.2, 0, 0, 1);
+}
+@keyframes word-in {
+  from { opacity: 0; transform: translateY(10px); filter: blur(4px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+.marquee-track {
+  animation: marquee 38s linear infinite;
+}
+.marquee-mask:hover .marquee-track {
+  animation-play-state: paused;
+}
+.marquee-mask {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+@keyframes marquee {
+  to { transform: translateX(-50%); }
+}
+
+.btn-shine {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgba(255, 255, 255, 0.55) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: shine 4.5s ease-in-out infinite;
+}
+@keyframes shine {
+  0%, 60% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+.btn-base:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+/* Cursor-following spotlight on cards (pointer position set by SpotlightGrid) */
+.spotlight-card {
+  position: relative;
+  isolation: isolate;
+}
+.spotlight-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(340px circle at var(--mx, 50%) var(--my, 50%), rgba(255, 209, 0, 0.16), transparent 62%);
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+.band-dark .spotlight-card::before {
+  background: radial-gradient(340px circle at var(--mx, 50%) var(--my, 50%), rgba(47, 99, 184, 0.35), transparent 62%);
+}
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+/* Process timeline: the rail draws itself when the section scrolls in */
+.process-line {
+  transform-origin: left;
+  transition: transform 1.4s cubic-bezier(0.2, 0, 0, 1) 0.2s;
+}
+.reveal-hidden .process-line {
+  transform: scaleX(0);
+}
+
+/* FAQ accordion — separate cards, smooth open/close (progressive: unsupported browsers just snap) */
+:root {
+  interpolate-size: allow-keywords;
+}
+.faq-item {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-md);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+.faq-item:hover {
+  border-color: rgba(0, 0, 0, 0.3);
+}
+.faq-item[open] {
+  border-color: var(--app-fg);
+  box-shadow: 0 12px 32px -20px rgba(0, 0, 0, 0.35);
+}
+.faq-item::details-content {
+  height: 0;
+  overflow: clip;
+  transition: height 0.3s ease, content-visibility 0.3s allow-discrete;
+}
+.faq-item[open]::details-content {
+  height: auto;
+}
+.faq-icon {
+  position: relative;
+  display: inline-block;
+  height: 32px;
+  width: 32px;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  transition: background-color 0.25s ease, border-color 0.25s ease, transform 0.3s ease;
+}
+.faq-icon::before,
+.faq-icon::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 12px;
+  height: 1.6px;
+  background: var(--app-fg);
+  transform: translate(-50%, -50%);
+  transition: transform 0.3s ease;
+}
+.faq-icon::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+.faq-item:hover .faq-icon {
+  border-color: var(--app-fg);
+}
+.faq-item[open] .faq-icon {
+  background: var(--brand-mint);
+  border-color: var(--brand-mint);
+}
+.faq-item[open] .faq-icon::after {
+  transform: translate(-50%, -50%) rotate(0deg);
+}
+.faq-item[open] .faq-body {
+  animation: fade-up 0.35s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.pulse-list > * {
+  min-width: 0;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-up,
   .animate-scale-in,
   .animate-ribbon,
-  .chat-typing-dot {
+  .chat-typing-dot,
+  .hero-orb,
+  .pulse-dot::after,
+  .float-slow,
+  .float-fast,
+  .rotating-word,
+  .marquee-track,
+  .btn-shine::after {
     animation: none;
+  }
+  /* Elements using these start at opacity-0 and rely on the animation to appear. */
+  .animate-fade-up,
+  .animate-scale-in {
+    opacity: 1 !important;
+  }
+  .pipeline-bar {
+    animation: none;
+    width: var(--w);
+  }
+  .reveal-hidden,
+  .reveal-shown {
+    transition: none;
+    opacity: 1;
+    transform: none;
+  }
+  .btn-base:hover:not(:disabled) {
+    transform: none;
   }
   .card-hover:hover {
     transform: none;

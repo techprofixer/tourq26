@@ -8,6 +8,8 @@ import { DEFAULT_OG_IMAGE } from "@/lib/seo";
 import { readSiteContent } from "@/lib/content";
 import { buildPageMetadata } from "@/lib/cms/metadata";
 import { CmsPageView, findPublishedPage } from "@/components/cms/CmsEntityPage";
+import CategoryContact from "@/components/CategoryContact";
+import { categoryFromPath } from "@/lib/contact-topics";
 
 function pathPrefix(kind: "SOLUTION" | "INDUSTRY" | "TECHNOLOGY" | "LOCATION") {
   return ENTITY_HUB_PATH[kind];
@@ -91,6 +93,7 @@ export function makeHubPage(opts: {
               )}
             </div>
           </section>
+          <CategoryContact category={categoryFromPath(prefix) ?? "solutions"} path={prefix} />
         </main>
         <Footer />
       </div>

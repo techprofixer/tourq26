@@ -8,6 +8,7 @@ import { getSiteUrl } from "@/lib/site-url";
 import { breadcrumbListJsonLd, webPageJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 import { CaseStudiesFilterGrid } from "./CaseStudiesFilterGrid";
+import CategoryContact from "@/components/CategoryContact";
 
 export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = await getSiteUrl();
@@ -99,6 +100,7 @@ export default async function CaseStudiesIndexPage() {
             "If your organisation is evaluating a similar trajectory, use these stories as conversation starters with your internal stakeholders, then bring your specifics to a consultation. We can map a phased plan that matches your risk appetite and existing team skills.",
           ]}
         />
+        <CategoryContact category="case-studies" path="/case-studies" />
       </main>
       <Footer />
     </div>

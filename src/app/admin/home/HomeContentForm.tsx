@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
   HomeContent,
@@ -11,6 +11,7 @@ import type {
 } from "@/lib/home-content";
 import { AiGenerateButton } from "@/components/admin/AiGenerateButton";
 import { ADMIN_INPUT_CLASS as inputClass } from "@/components/admin/form-styles";
+import { HomeSeoSection, type SiteSeoDefaults } from "./HomeSeoSection";
 
 // ---------------------------------------------------------------------------
 // Icons (inline SVG — no icon library in this project)
@@ -273,17 +274,36 @@ const SECTIONS = [
   { id: "section-offer-banner", label: "Offer banner" },
   { id: "section-offers", label: "Offers" },
   { id: "section-services", label: "Services" },
+  { id: "section-proof", label: "Proof strip" },
   { id: "section-whyus", label: "Why us" },
   { id: "section-case-studies", label: "Case studies" },
+  { id: "section-process", label: "Process" },
+  { id: "section-industries", label: "Industries" },
+  { id: "section-market-pulse", label: "Market pulse" },
+  { id: "section-testimonials", label: "Testimonials" },
+  { id: "section-faq", label: "FAQ" },
   { id: "section-cta", label: "CTA" },
   { id: "section-snapshot", label: "Snapshot" },
+  { id: "section-seo", label: "SEO & schema" },
 ];
 
 // ---------------------------------------------------------------------------
 
-export function HomeContentForm({ initialData }: { initialData: HomeContent }) {
+export function HomeContentForm({ initialData, site }: { initialData: HomeContent; site: SiteSeoDefaults }) {
   const router = useRouter();
   const [data, setData] = useState(initialData);
+  const [savedSnapshot, setSavedSnapshot] = useState(() => JSON.stringify(initialData));
+  const dirty = JSON.stringify(data) !== savedSnapshot;
+
+  // Warn before leaving with unsaved edits.
+  useEffect(() => {
+    if (!dirty) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [dirty]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -304,9 +324,11 @@ export function HomeContentForm({ initialData }: { initialData: HomeContent }) {
     });
     setSaving(false);
     if (!res.ok) {
-      setError("Save failed");
+      const body = (await res.json().catch(() => ({}))) as { error?: string };
+      setError(body.error || "Save failed");
       return;
     }
+    setSavedSnapshot(JSON.stringify(data));
     setSuccess(true);
     router.refresh();
   };
@@ -340,7 +362,7 @@ export function HomeContentForm({ initialData }: { initialData: HomeContent }) {
   };
 
   return (
-    <form onSubmit={(e) => { e.preventDefault(); void save(); }} className="mt-8 max-w-3xl space-y-10">
+    <form onSubmit={(e) => { e.preventDefault(); void save(); }} className="mt-8 max-w-4xl space-y-10">
       <nav
         aria-label="Jump to section"
         className="sticky top-0 z-10 -mx-5 flex flex-wrap items-center gap-1 border-b border-border/60 bg-background/95 px-5 py-2.5 backdrop-blur lg:-mx-8 lg:px-8"
@@ -391,6 +413,13 @@ export function HomeContentForm({ initialData }: { initialData: HomeContent }) {
           onChange={(v) => update("heroTags", v.split("\n").map((t) => t.trim()).filter(Boolean))}
           textarea
           rows={5}
+        />
+        <Field
+          label="Rotating words — “Right now we’re building …” (one per line; blank = your service names)"
+          value={data.heroRotatingWords.join("\n")}
+          onChange={(v) => update("heroRotatingWords", v.split("\n").map((t) => t.trim()).filter(Boolean))}
+          textarea
+          rows={4}
         />
 
         <div className="rounded-lg border border-border/60 bg-muted/20 p-4">
@@ -604,6 +633,40 @@ export function HomeContentForm({ initialData }: { initialData: HomeContent }) {
         </div>
       </section>
 
+      <section id="section-proof" className="card-flat scroll-mt-16 space-y-4">
+        <SectionHeader
+          icon={StarIcon}
+          accent="amber"
+          title="Proof strip"
+          description="The animated numbers under services. Only publish claims you can back up."
+          toggle={<Toggle checked={data.proofEnabled} onChange={(v) => update("proofEnabled", v)} />}
+        />
+        <div className="space-y-3">
+          {data.proofStats.map((st, i) => (
+            <div key={i} className="grid items-end gap-3 rounded-lg border border-border p-3 sm:grid-cols-[8rem_1fr_auto]">
+              <Field label="Value (40%, 50+, 24h)" value={st.value} onChange={(v) => update("proofStats", data.proofStats.map((x, j) => (j === i ? { ...x, value: v } : x)))} />
+              <Field label="Label" value={st.label} onChange={(v) => update("proofStats", data.proofStats.map((x, j) => (j === i ? { ...x, label: v } : x)))} />
+              <ReorderButtons
+                index={i}
+                count={data.proofStats.length}
+                onMove={(from, to) => update("proofStats", reorder(data.proofStats, from, to))}
+                onRemove={(idx) => update("proofStats", data.proofStats.filter((_, j) => j !== idx))}
+              />
+            </div>
+          ))}
+          <button type="button" onClick={() => update("proofStats", [...data.proofStats, { value: "", label: "" }])} className="btn-base btn-outline text-sm">
+            + Add stat
+          </button>
+        </div>
+        <Field
+          label="Regions marquee (one per line; leave empty to hide)"
+          value={data.proofRegions.join("\n")}
+          onChange={(v) => update("proofRegions", v.split("\n").map((t) => t.trim()).filter(Boolean))}
+          textarea
+          rows={4}
+        />
+      </section>
+
       <section id="section-whyus" className="card-flat scroll-mt-16 space-y-4">
         <SectionHeader icon={StarIcon} accent="purple" title="Why Choose Us" />
         <Field label="Eyebrow" value={data.whyUsEyebrow} onChange={(v) => update("whyUsEyebrow", v)} />
@@ -662,6 +725,118 @@ export function HomeContentForm({ initialData }: { initialData: HomeContent }) {
         <Field label="Eyebrow" value={data.caseStudiesEyebrow} onChange={(v) => update("caseStudiesEyebrow", v)} />
         <Field label="Heading" value={data.caseStudiesHeading} onChange={(v) => update("caseStudiesHeading", v)} />
         <Field label="Intro" value={data.caseStudiesIntro} onChange={(v) => update("caseStudiesIntro", v)} textarea rows={2} />
+      </section>
+
+      <section id="section-process" className="card-flat scroll-mt-16 space-y-4">
+        <SectionHeader
+          icon={BriefcaseIcon}
+          accent="indigo"
+          title="How we work (process)"
+          description="Steps that de-risk the buy. 3–6 steps look best."
+          toggle={<Toggle checked={data.processEnabled} onChange={(v) => update("processEnabled", v)} />}
+        />
+        <Field label="Eyebrow" value={data.processEyebrow} onChange={(v) => update("processEyebrow", v)} />
+        <Field label="Heading" value={data.processHeading} onChange={(v) => update("processHeading", v)} />
+        <Field label="Intro" value={data.processIntro} onChange={(v) => update("processIntro", v)} textarea rows={2} />
+        <div className="space-y-4">
+          {data.processSteps.map((st, i) => (
+            <div key={i} className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between">
+                <p className="mono-label text-muted-foreground">STEP {i + 1}</p>
+                <ReorderButtons
+                  index={i}
+                  count={data.processSteps.length}
+                  onMove={(from, to) => update("processSteps", reorder(data.processSteps, from, to))}
+                  onRemove={(idx) => update("processSteps", data.processSteps.filter((_, j) => j !== idx))}
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-[1fr_10rem]">
+                <Field label="Title" value={st.title} onChange={(v) => update("processSteps", data.processSteps.map((x, j) => (j === i ? { ...x, title: v } : x)))} />
+                <Field label="Timing tag" value={st.tag} onChange={(v) => update("processSteps", data.processSteps.map((x, j) => (j === i ? { ...x, tag: v } : x)))} />
+              </div>
+              <Field label="Description" value={st.body} onChange={(v) => update("processSteps", data.processSteps.map((x, j) => (j === i ? { ...x, body: v } : x)))} textarea rows={2} />
+            </div>
+          ))}
+          <button type="button" onClick={() => update("processSteps", [...data.processSteps, { title: "New step", body: "", tag: "" }])} className="btn-base btn-outline text-sm">
+            + Add step
+          </button>
+        </div>
+      </section>
+
+      <section id="section-industries" className="card-flat scroll-mt-16 space-y-4">
+        <SectionHeader
+          icon={FolderIcon}
+          accent="emerald"
+          title="Industries"
+          description="Cards come from published industries in Admin → CMS → Entities; only the intro copy lives here."
+          toggle={<Toggle checked={data.industriesEnabled} onChange={(v) => update("industriesEnabled", v)} />}
+        />
+        <Field label="Eyebrow" value={data.industriesEyebrow} onChange={(v) => update("industriesEyebrow", v)} />
+        <Field label="Heading" value={data.industriesHeading} onChange={(v) => update("industriesHeading", v)} />
+        <Field label="Intro" value={data.industriesIntro} onChange={(v) => update("industriesIntro", v)} textarea rows={2} />
+      </section>
+
+      <section id="section-market-pulse" className="card-flat scroll-mt-16 space-y-4">
+        <SectionHeader
+          icon={MegaphoneIcon}
+          accent="teal"
+          title="Market pulse"
+          description="Live section: shows your newest published Tech news posts (also feeds the hero ticker). It hides itself when there are none."
+          toggle={<Toggle checked={data.marketPulseEnabled} onChange={(v) => update("marketPulseEnabled", v)} />}
+        />
+        <Field label="Eyebrow" value={data.marketPulseEyebrow} onChange={(v) => update("marketPulseEyebrow", v)} />
+        <Field label="Heading" value={data.marketPulseHeading} onChange={(v) => update("marketPulseHeading", v)} />
+        <Field label="Intro" value={data.marketPulseIntro} onChange={(v) => update("marketPulseIntro", v)} textarea rows={2} />
+      </section>
+
+      <section id="section-testimonials" className="card-flat scroll-mt-16 space-y-4">
+        <SectionHeader
+          icon={StarIcon}
+          accent="purple"
+          title="Testimonials (section copy)"
+          description="The quotes themselves are managed on the Testimonials page."
+          toggle={<Toggle checked={data.testimonialsEnabled} onChange={(v) => update("testimonialsEnabled", v)} />}
+        />
+        <Field label="Eyebrow" value={data.testimonialsEyebrow} onChange={(v) => update("testimonialsEyebrow", v)} />
+        <Field label="Heading" value={data.testimonialsHeading} onChange={(v) => update("testimonialsHeading", v)} />
+        <Field label="Intro" value={data.testimonialsIntro} onChange={(v) => update("testimonialsIntro", v)} textarea rows={2} />
+      </section>
+
+      <section id="section-faq" className="card-flat scroll-mt-16 space-y-4">
+        <SectionHeader
+          icon={DocIcon}
+          accent="sky"
+          title="FAQ"
+          description="Leave the list empty to auto-build it from your service pages. Whatever shows here is also what FAQPage schema describes."
+          toggle={<Toggle checked={data.faqEnabled} onChange={(v) => update("faqEnabled", v)} />}
+        />
+        <Field label="Heading" value={data.faqHeading} onChange={(v) => update("faqHeading", v)} />
+        <Field label="Intro" value={data.faqIntro} onChange={(v) => update("faqIntro", v)} textarea rows={2} />
+        <div className="space-y-4">
+          {data.faqItems.map((f, i) => (
+            <div key={i} className="space-y-3 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between">
+                <p className="mono-label text-muted-foreground">QUESTION {i + 1}</p>
+                <ReorderButtons
+                  index={i}
+                  count={data.faqItems.length}
+                  onMove={(from, to) => update("faqItems", reorder(data.faqItems, from, to))}
+                  onRemove={(idx) => update("faqItems", data.faqItems.filter((_, j) => j !== idx))}
+                />
+              </div>
+              <Field label="Question" value={f.question} onChange={(v) => update("faqItems", data.faqItems.map((x, j) => (j === i ? { ...x, question: v } : x)))} />
+              <Field label="Answer (plain text or simple HTML)" value={f.answer} onChange={(v) => update("faqItems", data.faqItems.map((x, j) => (j === i ? { ...x, answer: v } : x)))} textarea rows={3} />
+            </div>
+          ))}
+          <div className="flex flex-wrap items-center gap-3">
+            <button type="button" onClick={() => update("faqItems", [...data.faqItems, { question: "", answer: "" }])} className="btn-base btn-outline text-sm">
+              + Add question
+            </button>
+            {data.faqItems.length === 0 ? (
+              <span className="text-[13px] text-muted-foreground">Currently auto-built from your service pages.</span>
+            ) : null}
+          </div>
+        </div>
       </section>
 
       <section id="section-cta" className="card-flat scroll-mt-16 space-y-4">
@@ -750,11 +925,37 @@ export function HomeContentForm({ initialData }: { initialData: HomeContent }) {
         </div>
       </section>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      {success ? <p className="text-sm text-success">Saved. The homepage will update on the next page load.</p> : null}
-      <button type="submit" disabled={saving} className="btn-base btn-primary">
-        {saving ? "Saving…" : "Save homepage"}
-      </button>
+      <section id="section-seo" className="card-flat scroll-mt-16 space-y-4">
+        <SectionHeader
+          icon={TagIcon}
+          accent="rose"
+          title="SEO & schema"
+          description="How the homepage appears in Google and when shared, plus its structured data. Blank fields fall back to the site defaults in Brand & SEO."
+        />
+        <HomeSeoSection data={data} update={update} site={site} />
+      </section>
+
+      <div className="sticky bottom-0 z-10 -mx-5 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 bg-background/95 px-5 py-3 backdrop-blur lg:-mx-8 lg:px-8">
+        <p className="text-sm" role="status">
+          {error ? (
+            <span className="text-destructive">{error}</span>
+          ) : success && !dirty ? (
+            <span className="text-success">Saved. The homepage updates on the next page load.</span>
+          ) : dirty ? (
+            <span className="text-amber-700">● Unsaved changes</span>
+          ) : (
+            <span className="text-muted-foreground">All changes saved</span>
+          )}
+        </p>
+        <div className="flex items-center gap-3">
+          <a href="/" target="_blank" rel="noopener noreferrer" className="btn-base btn-outline text-sm">
+            View homepage ↗
+          </a>
+          <button type="submit" disabled={saving || !dirty} className="btn-base btn-primary">
+            {saving ? "Saving…" : "Save homepage"}
+          </button>
+        </div>
+      </div>
     </form>
   );
 }

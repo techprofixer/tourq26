@@ -3,6 +3,8 @@ import type { PageWithSeo } from "@/lib/cms/pages";
 import { getPageBlocks } from "@/lib/cms/pages";
 import {
   DEFAULT_OG_IMAGE,
+  fitDescription,
+  seoTitle,
   articleJsonLd,
   breadcrumbListJsonLd,
   definedTermJsonLd,
@@ -52,6 +54,18 @@ const ARTICLE_TYPES = new Set(["GUIDE", "COMPARISON", "RESEARCH", "WHITEPAPER", 
 /** Page types describing something Torq Studio sells (Service schema). */
 const SERVICE_TYPES = new Set(["SERVICE", "SOLUTION", "LOCATION", "INDUSTRY", "TECHNOLOGY"]);
 
+/** First hero subheading / paragraph on the page — a better fallback than an empty meta description. */
+function firstBlockText(page: PageWithSeo): string | undefined {
+  for (const b of getPageBlocks(page)) {
+    if (b.type === "hero" && b.subheading) return b.subheading;
+    if (b.type === "contentSection") {
+      const t = stripHtmlToText(b.bodyHtml);
+      if (t) return t;
+    }
+  }
+  return undefined;
+}
+
 function pageDates(page: PageWithSeo) {
   return {
     published: (page.publishedAt ?? page.createdAt).toISOString(),
@@ -73,23 +87,26 @@ export function buildPageMetadata(
   siteName?: string,
 ): Metadata {
   const seo = page.seo;
-  const title = seo?.metaTitle || page.title;
-  const description = seo?.metaDescription || page.excerpt || undefined;
+  const rawTitle = seo?.metaTitle || page.title;
+  const title = seoTitle(rawTitle, siteName);
+  // Editors often skip the meta description; fall back to the page's own copy rather than ship none.
+  const description = fitDescription(seo?.metaDescription || page.excerpt || firstBlockText(page));
   const canonical = seo?.canonical || `${siteUrl.replace(/\/$/, "")}${page.path}`;
   const index = seo?.robotsIndex ?? page.status === "PUBLISHED";
   const follow = seo?.robotsFollow ?? true;
   const isArticle = ARTICLE_TYPES.has(page.type);
   const dates = pageDates(page);
   const image = seo?.ogImageUrl
-    ? { url: seo.ogImageUrl, width: 1200, height: 630, alt: seo.ogTitle || title }
-    : { ...DEFAULT_OG_IMAGE, alt: seo?.ogTitle || title };
+    ? { url: seo.ogImageUrl, width: 1200, height: 630, alt: seo.ogTitle || rawTitle }
+    : { ...DEFAULT_OG_IMAGE, alt: seo?.ogTitle || rawTitle };
 
+  const socialTitle = rawTitle.replace(/\s*[|\-–—]\s*Torq Studio\s*$/i, "");
   return {
     title,
     description,
     alternates: { canonical },
     openGraph: {
-      title: seo?.ogTitle || title,
+      title: seo?.ogTitle || socialTitle,
       description: seo?.ogDescription || description,
       url: canonical,
       locale: "en_IN",
@@ -106,7 +123,7 @@ export function buildPageMetadata(
     },
     twitter: {
       card: "summary_large_image",
-      title: seo?.twitterTitle || title,
+      title: seo?.twitterTitle || socialTitle,
       description: seo?.twitterDescription || description,
       images: [image.url],
     },
@@ -130,7 +147,7 @@ export function buildPageJsonLd(page: PageWithSeo, siteUrl: string, siteName: st
   const blocks = getPageBlocks(page);
   const schemas: Record<string, unknown>[] = [];
   const name = page.seo?.metaTitle || page.title;
-  const description = page.seo?.metaDescription || page.excerpt || "";
+  const description = fitDescription(page.seo?.metaDescription || page.excerpt || firstBlockText(page)) ?? "";
   const dates = pageDates(page);
   const image = page.seo?.ogImageUrl || undefined;
 

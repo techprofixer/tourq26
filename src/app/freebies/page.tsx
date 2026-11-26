@@ -11,7 +11,7 @@ import { SupportingProseSection } from "@/components/marketing/SupportingProseSe
 export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = await getSiteUrl();
   return {
-    title: "Free Resources",
+    title: "Free Software Project Templates & Checklists",
     description:
       "Free checklists, templates, and guides for product teams and founders: mobile app partner checklist, project brief template, pre-launch checklist, build vs buy guide.",
     alternates: { canonical: `${baseUrl}/freebies` },

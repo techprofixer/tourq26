@@ -10,6 +10,8 @@ import { buildPageBreadcrumbs, buildPageJsonLd, buildPageMetadata } from "@/lib/
 import { getSiteUrl } from "@/lib/site-url";
 import { readSiteContent } from "@/lib/content";
 import { getRelatedContentGroups } from "@/lib/related-links";
+import CategoryContact from "@/components/CategoryContact";
+import { categoryFromPath, topicForSlug } from "@/lib/contact-topics";
 
 type CmsPage = NonNullable<Awaited<ReturnType<typeof getPublishedPageByPath>>>;
 
@@ -48,6 +50,7 @@ export async function CmsPageView({
   ]);
   const schemas = buildPageJsonLd(page, siteUrl, site.siteName);
   const blocks = getPageBlocks(page);
+  const category = categoryFromPath(page.path);
 
   return (
     <div className="min-h-screen bg-background">
@@ -58,6 +61,14 @@ export async function CmsPageView({
       <main>
         <BlockRenderer blocks={blocks} breadcrumbs={buildPageBreadcrumbs(page)} />
         {relatedGroups ? <RelatedContentSection groups={relatedGroups} /> : null}
+        {category ? (
+          <CategoryContact
+            category={category}
+            pageTitle={page.path === `/${page.path.split("/")[1]}` ? undefined : page.title}
+            path={page.path}
+            topic={category === "services" ? topicForSlug(page.path.split("/").pop()) : undefined}
+          />
+        ) : null}
       </main>
       <Footer />
     </div>

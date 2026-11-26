@@ -11,6 +11,7 @@ import { breadcrumbListJsonLd, webPageJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 import { getEntityCatalogCards } from "@/lib/entity-catalog";
 import { buildPageMetadata } from "@/lib/cms/metadata";
+import CategoryContact from "@/components/CategoryContact";
 
 // Safety net: on-demand revalidation covers CMS/entity edits, but this bounds staleness
 // to an hour even if a revalidatePath call is ever missed.
@@ -155,6 +156,7 @@ export default async function ServicesIndexPage() {
             "When you are ready to compare Torq Studio with other options, combine these overviews with our case studies and blog. Then use the contact form with a short problem statement — we will reply with a suggested workshop, estimate range, or referral if another partner is a better match.",
           ]}
         />
+        <CategoryContact category="services" path="/services" />
       </main>
       <Footer />
     </div>

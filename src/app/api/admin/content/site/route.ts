@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { withAdmin } from "@/lib/with-admin";
-import { readSiteContent, writeSiteContent, type SiteContent } from "@/lib/content";
+import { readSiteContent, writeSiteContent, parseOrgProfile, type SiteContent } from "@/lib/content";
 import { logActivity } from "@/lib/activity-log";
 
 export const GET = withAdmin(async () => {
@@ -38,6 +38,7 @@ export const PUT = withAdmin(async (request: NextRequest) => {
     blockAiTraining:
       typeof body.blockAiTraining === "boolean" ? body.blockAiTraining : current.blockAiTraining,
     llmsTxtExtra: typeof body.llmsTxtExtra === "string" ? body.llmsTxtExtra : current.llmsTxtExtra,
+    org: body.org ? parseOrgProfile({ ...current.org, ...body.org }) : current.org,
   };
   await writeSiteContent(data);
   void logActivity({ entityType: "site", action: "updated", summary: "Updated site & SEO settings" });
