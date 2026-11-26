@@ -43,6 +43,7 @@ export function AdminSidebar({
         { href: "/admin/cms/pages", label: "Pages" },
         { href: "/admin/cms/entities", label: "Entities" },
         { href: "/admin/media", label: "Media" },
+        { href: "/admin/seo", label: "SEO health" },
       ],
     },
     {

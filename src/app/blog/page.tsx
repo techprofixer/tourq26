@@ -9,11 +9,12 @@ import { getSiteUrl } from "@/lib/site-url";
 import { breadcrumbListJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { BlogPostCard } from "@/components/blog/BlogPostCard";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
+import CategoryContact from "@/components/CategoryContact";
 
 export async function generateMetadata(): Promise<Metadata> {
   const baseUrl = await getSiteUrl();
   return {
-    title: "Blog",
+    title: "Engineering Blog: Software, AI & Product Guides",
     description:
       "Insights on mobile app development, web development, AI solutions, and remote IT teams. Tips and guides from Torq Studio to help you scale smarter.",
     alternates: { canonical: `${baseUrl}/blog` },
@@ -119,6 +120,7 @@ export default async function BlogPage() {
             "New guides are added as we see recurring questions from clients and prospects. Subscribe to updates by bookmarking the blog or following Torq Studio on the social channels listed in the site footer.",
           ]}
         />
+        <CategoryContact category="blog" path="/blog" />
       </main>
       <Footer />
     </div>

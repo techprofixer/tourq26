@@ -1,12 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { HomeContent } from "@/lib/home-content";
+import Reveal from "@/components/motion/Reveal";
+import SpotlightGrid from "@/components/motion/SpotlightGrid";
 
 /**
- * Services section (DESIGN.md → article-card grid + data-table row treatment).
- * Light band with a 4-up grid of flat hairline cards. Each row leads with a
- * mono category label, then a display-md card title and a body summary —
- * matching the brand's article-card and research-card chrome.
+ * Services section. Bento grid: the first card spans two columns on desktop, the rest tile
+ * evenly. Cards get a cursor-following spotlight and a lift on hover. Items are admin-editable
+ * (Admin → Homepage → Services).
  */
 
 export type ServicesProps = Pick<
@@ -43,12 +44,13 @@ export default function Services({
           </div>
         </header>
 
-        <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
-          {servicesItems.map((service) => (
-            <li key={service.slug}>
+        <SpotlightGrid className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {servicesItems.map((service, i) => (
+            <li key={service.slug} className={i === 0 ? "lg:col-span-2" : ""}>
+              <Reveal delay={(i % 3) * 80} className="h-full">
               <Link
                 href={`/services/${service.slug}`}
-                className="card-flat card-hover group flex h-full flex-col"
+                className={`card-flat card-hover spotlight-card group flex h-full flex-col ${i === 0 ? "lg:p-8" : ""}`}
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className="mono-eyebrow text-muted-foreground">{service.category}</p>
@@ -63,20 +65,21 @@ export default function Services({
                     />
                   </span>
                 </div>
-                <h3 className="display-md mt-5 text-foreground">{service.title}</h3>
-                <p className="mt-3 text-[15px] leading-relaxed text-muted-foreground">
+                <h3 className={`mb-0 mt-5 text-foreground ${i === 0 ? "display-lg" : "display-md"}`}>{service.title}</h3>
+                <p className="mb-6 mt-3 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
                   {service.description}
                 </p>
-                <div className="mt-6 flex items-center justify-between border-t border-hairline pt-4">
+                <div className="mt-auto flex items-center justify-between border-t border-hairline pt-4">
                   <span className="mono-label text-muted-foreground">{service.result}</span>
                   <span className="mono-button text-foreground transition-transform group-hover:translate-x-0.5">
                     LEARN MORE →
                   </span>
                 </div>
               </Link>
+              </Reveal>
             </li>
           ))}
-        </ul>
+        </SpotlightGrid>
       </div>
     </section>
   );

@@ -8,13 +8,15 @@ import { CmsPageView, findPublishedPage } from "@/components/cms/CmsEntityPage";
 import { getServicePage, servicePages } from "@/data/services-content";
 import { publishedBlogPosts, readBlogPosts, readSiteContent } from "@/lib/content";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd, faqPageJsonLd, serviceJsonLd, webPageJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
+import { breadcrumbListJsonLd, faqPageJsonLd, serviceJsonLd, webPageJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS, seoTitle, fitDescription } from "@/lib/seo";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 import { ServiceSectionNav } from "@/components/marketing/ServiceSectionNav";
 import { RelatedContentSection } from "@/components/marketing/RelatedContentSection";
 import { slugify } from "@/lib/slug";
 import { buildPageMetadata } from "@/lib/cms/metadata";
 import { getRelatedContentGroups } from "@/lib/related-links";
+import CategoryContact from "@/components/CategoryContact";
+import { topicForSlug } from "@/lib/contact-topics";
 
 // Safety net: on-demand revalidation covers CMS/site-setting edits, but this bounds
 // staleness to an hour even if a revalidatePath call is ever missed.
@@ -39,8 +41,8 @@ export async function generateMetadata({
   const page = getServicePage(slug);
   if (!page) return { title: "Service not found", robots: { index: false, follow: false } };
   return {
-    title: page.title,
-    description: page.description,
+    title: seoTitle(page.title, site.siteName),
+    description: fitDescription(page.description),
     alternates: { canonical: `${baseUrl}/services/${page.slug}` },
     openGraph: {
       images: [DEFAULT_OG_IMAGE],
@@ -266,6 +268,7 @@ export default async function ServiceDetailPage({
         </section>
 
         <RelatedContentSection groups={relatedGroups} />
+        <CategoryContact category="services" pageTitle={page.title} path={`/services/${page.slug}`} topic={topicForSlug(page.slug)} />
       </main>
       <Footer />
     </div>

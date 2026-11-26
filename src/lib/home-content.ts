@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import { prisma, readSingletonSetting, writeSingletonSetting, SINGLETON_KEY } from "@/lib/db";
 
 export type ServiceItem = {
@@ -33,7 +34,65 @@ export type OfferItem = {
   ctaHref: string;
 };
 
-export type HomeContent = {
+export type StatItem = { value: string; label: string };
+export type ProcessStep = { title: string; body: string; tag: string };
+export type HomeFaqItem = { question: string; answer: string };
+
+/**
+ * Homepage settings added after the first release. Persisted together as one JSON document
+ * (`HomePageContent.extras`) so each new section doesn't need its own column.
+ */
+export type HomeExtras = {
+  /** Words the hero's "Right now we're building …" line cycles through. Empty = service titles. */
+  heroRotatingWords: string[];
+
+  proofEnabled: boolean;
+  proofStats: StatItem[];
+  proofRegions: string[];
+
+  processEnabled: boolean;
+  processEyebrow: string;
+  processHeading: string;
+  processIntro: string;
+  processSteps: ProcessStep[];
+
+  industriesEnabled: boolean;
+  industriesEyebrow: string;
+  industriesHeading: string;
+  industriesIntro: string;
+
+  marketPulseEnabled: boolean;
+  marketPulseEyebrow: string;
+  marketPulseHeading: string;
+  marketPulseIntro: string;
+
+  testimonialsEnabled: boolean;
+  testimonialsEyebrow: string;
+  testimonialsHeading: string;
+  testimonialsIntro: string;
+
+  faqEnabled: boolean;
+  faqHeading: string;
+  faqIntro: string;
+  /** Empty = auto-built from the service pages' FAQs. */
+  faqItems: HomeFaqItem[];
+
+  // ---- Homepage SEO & schema (blank = fall back to Brand & SEO site defaults) ----
+  seoMetaTitle: string;
+  seoMetaDescription: string;
+  seoOgTitle: string;
+  seoOgDescription: string;
+  seoOgImageUrl: string;
+  /** Absolute URL; blank = the site URL. */
+  seoCanonical: string;
+  seoRobotsIndex: boolean;
+  schemaFaqEnabled: boolean;
+  schemaServicesEnabled: boolean;
+  /** Raw JSON-LD object/array appended after the generated graph. Must be valid JSON. */
+  seoJsonLdCustom: string;
+};
+
+export type HomeContent = HomeExtras & {
   heroEyebrow: string;
   heroHeading: string;
   heroSubheading: string;
@@ -93,6 +152,7 @@ export type HomeContent = {
   snapshotParagraphs: string[];
 };
 
+
 /** True while the banner is enabled, has text, and its optional end date (inclusive, UTC) has not passed. */
 export function isOfferBannerLive(
   home: Pick<HomeContent, "offerBannerEnabled" | "offerBannerText" | "offerBannerEndsAt">,
@@ -103,6 +163,172 @@ export function isOfferBannerLive(
   if (!end) return true;
   const endMs = Date.parse(`${end}T23:59:59.999Z`);
   return Number.isNaN(endMs) || now.getTime() <= endMs;
+}
+
+export function getDefaultHomeExtras(): HomeExtras {
+  return {
+    heroRotatingWords: [],
+
+    proofEnabled: true,
+    proofStats: [
+      { value: "40%", label: "Lower cost vs. local-only hire" },
+      { value: "100%", label: "On-time milestone delivery" },
+      { value: "50+", label: "Production launches shipped" },
+      { value: "24h", label: "Average first-reply window" },
+    ],
+    proofRegions: ["Mumbai", "Pune", "Bengaluru", "Delhi NCR", "Hyderabad", "Chennai"],
+
+    processEnabled: true,
+    processEyebrow: "HOW WE WORK",
+    processHeading: "Five steps from first call to go-live.",
+    processIntro:
+      "A predictable process is how we keep estimates honest and scope from silently doubling after kickoff.",
+    processSteps: [
+      {
+        title: "Discovery call",
+        body: "Free 30 minutes. Bring a problem, a stack, or a one-pager — we reply with a fixed scope, a paid discovery, or an honest redirect.",
+        tag: "DAY 1",
+      },
+      {
+        title: "Scope & estimate",
+        body: "Written scope, written acceptance criteria, a defensible timeline. Finance sees a number; engineering sees a definition of done.",
+        tag: "WEEK 1",
+      },
+      {
+        title: "Design & architecture",
+        body: "Flows, data model, and integration decisions documented before code, so surprises surface while they are still cheap.",
+        tag: "WEEK 1–2",
+      },
+      {
+        title: "Build in weekly cycles",
+        body: "Senior engineers ship working increments every week with a checkpoint demo. You see progress, not status reports.",
+        tag: "WEEKLY",
+      },
+      {
+        title: "Launch & hand-over",
+        body: "Store submission, monitoring, runbooks and READMEs your team can audit — then support that matches how you operate.",
+        tag: "GO-LIVE",
+      },
+    ],
+
+    industriesEnabled: true,
+    industriesEyebrow: "INDUSTRIES",
+    industriesHeading: "Domain-aware, not one-size-fits-all.",
+    industriesIntro: "Regulation, integrations, and user expectations differ by sector. We start from yours.",
+
+    marketPulseEnabled: true,
+    marketPulseEyebrow: "MARKET PULSE",
+    marketPulseHeading: "What\u2019s moving in tech, as it moves.",
+    marketPulseIntro:
+      "Our engineers track the shifts that change build decisions — AI, cloud, security, tooling. Updated as we publish.",
+
+    testimonialsEnabled: true,
+    testimonialsEyebrow: "CLIENT VOICE",
+    testimonialsHeading: "Teams that shipped with us.",
+    testimonialsIntro:
+      "Founders, CTOs, and operations leads on what changed in their stack after we shipped — and what they kept.",
+
+    faqEnabled: true,
+    faqHeading: "Questions teams ask before we talk.",
+    faqIntro: "Straight answers on scope, pricing, timelines and how we work.",
+    faqItems: [],
+
+    seoMetaTitle: "",
+    seoMetaDescription: "",
+    seoOgTitle: "",
+    seoOgDescription: "",
+    seoOgImageUrl: "",
+    seoCanonical: "",
+    seoRobotsIndex: true,
+    schemaFaqEnabled: true,
+    schemaServicesEnabled: true,
+    seoJsonLdCustom: "",
+  };
+}
+
+// --- defensive parsing of the `extras` JSON document (it is hand-editable + schemaless) ---
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+const pStr = (v: unknown, d: string, blankOk = false) =>
+  typeof v === "string" && (blankOk || v.trim()) ? v : d;
+const pBool = (v: unknown, d: boolean) => (typeof v === "boolean" ? v : d);
+const pStrArr = (v: unknown, d: string[]) =>
+  Array.isArray(v) && v.every((x) => typeof x === "string") ? (v as string[]) : d;
+function pObjArr<T>(v: unknown, d: T[], ok: (x: Record<string, unknown>) => boolean, emptyIsDefault: boolean): T[] {
+  if (!Array.isArray(v) || !v.every((x) => isObj(x) && ok(x))) return d;
+  return v.length === 0 && emptyIsDefault ? d : (v as T[]);
+}
+
+export function parseHomeExtras(raw: unknown): HomeExtras {
+  const d = getDefaultHomeExtras();
+  if (!isObj(raw)) return d;
+  const r = raw;
+  return {
+    heroRotatingWords: pStrArr(r.heroRotatingWords, d.heroRotatingWords),
+
+    proofEnabled: pBool(r.proofEnabled, d.proofEnabled),
+    proofStats: pObjArr<StatItem>(
+      r.proofStats, d.proofStats, (x) => typeof x.value === "string" && typeof x.label === "string", true),
+    proofRegions: pStrArr(r.proofRegions, d.proofRegions),
+
+    processEnabled: pBool(r.processEnabled, d.processEnabled),
+    processEyebrow: pStr(r.processEyebrow, d.processEyebrow),
+    processHeading: pStr(r.processHeading, d.processHeading),
+    processIntro: pStr(r.processIntro, d.processIntro),
+    processSteps: pObjArr<ProcessStep>(
+      r.processSteps, d.processSteps, (x) => typeof x.title === "string" && typeof x.body === "string", true),
+
+    industriesEnabled: pBool(r.industriesEnabled, d.industriesEnabled),
+    industriesEyebrow: pStr(r.industriesEyebrow, d.industriesEyebrow),
+    industriesHeading: pStr(r.industriesHeading, d.industriesHeading),
+    industriesIntro: pStr(r.industriesIntro, d.industriesIntro),
+
+    marketPulseEnabled: pBool(r.marketPulseEnabled, d.marketPulseEnabled),
+    marketPulseEyebrow: pStr(r.marketPulseEyebrow, d.marketPulseEyebrow),
+    marketPulseHeading: pStr(r.marketPulseHeading, d.marketPulseHeading),
+    marketPulseIntro: pStr(r.marketPulseIntro, d.marketPulseIntro),
+
+    testimonialsEnabled: pBool(r.testimonialsEnabled, d.testimonialsEnabled),
+    testimonialsEyebrow: pStr(r.testimonialsEyebrow, d.testimonialsEyebrow),
+    testimonialsHeading: pStr(r.testimonialsHeading, d.testimonialsHeading),
+    testimonialsIntro: pStr(r.testimonialsIntro, d.testimonialsIntro),
+
+    faqEnabled: pBool(r.faqEnabled, d.faqEnabled),
+    faqHeading: pStr(r.faqHeading, d.faqHeading),
+    faqIntro: pStr(r.faqIntro, d.faqIntro, true),
+    faqItems: pObjArr<HomeFaqItem>(
+      r.faqItems, d.faqItems, (x) => typeof x.question === "string" && typeof x.answer === "string", false),
+
+    seoMetaTitle: pStr(r.seoMetaTitle, "", true),
+    seoMetaDescription: pStr(r.seoMetaDescription, "", true),
+    seoOgTitle: pStr(r.seoOgTitle, "", true),
+    seoOgDescription: pStr(r.seoOgDescription, "", true),
+    seoOgImageUrl: pStr(r.seoOgImageUrl, "", true),
+    seoCanonical: pStr(r.seoCanonical, "", true),
+    seoRobotsIndex: pBool(r.seoRobotsIndex, d.seoRobotsIndex),
+    schemaFaqEnabled: pBool(r.schemaFaqEnabled, d.schemaFaqEnabled),
+    schemaServicesEnabled: pBool(r.schemaServicesEnabled, d.schemaServicesEnabled),
+    seoJsonLdCustom: pStr(r.seoJsonLdCustom, "", true),
+  };
+}
+
+/** Returns an error message when `raw` is not empty and not valid JSON-LD (object or array of objects). */
+export function validateJsonLdText(raw: string): string | null {
+  if (!raw.trim()) return null;
+  try {
+    const v: unknown = JSON.parse(raw);
+    const items = Array.isArray(v) ? v : [v];
+    if (items.length === 0 || !items.every(isObj)) return "JSON-LD must be an object or an array of objects.";
+    return null;
+  } catch (e) {
+    return `Invalid JSON: ${e instanceof Error ? e.message : "parse error"}`;
+  }
+}
+
+/** Parsed custom JSON-LD objects (empty when unset or invalid — never throws). */
+export function customHomeJsonLd(raw: string): Record<string, unknown>[] {
+  if (validateJsonLdText(raw) || !raw.trim()) return [];
+  const v: unknown = JSON.parse(raw);
+  return (Array.isArray(v) ? v : [v]).filter(isObj);
 }
 
 function getDefaultHomeContent(): HomeContent {
@@ -235,6 +461,8 @@ function getDefaultHomeContent(): HomeContent {
     ctaFootnote: "NO COMMITMENT · 24 HOUR REPLY",
 
     snapshotHeading: "Snapshot for technical decision-makers",
+    ...getDefaultHomeExtras(),
+
     snapshotParagraphs: [
       "Torq Studio is a senior-engineering-led practice: we build and advise on mobile applications, customer-facing websites, internal web platforms, public and partner APIs, and practical AI automation where there is a measurable workflow to improve.",
       "Clients choose us when delivery risk is high—store review, traffic spikes, integration breakage, or governance—and they want direct access to the people doing the work. We document scope, acceptance criteria, and milestone checkpoints so finance and leadership see steady progress, not black-box development.",
@@ -354,8 +582,17 @@ export async function readHomeContent(): Promise<HomeContent> {
 
     snapshotHeading: row.snapshotHeading || d.snapshotHeading,
     snapshotParagraphs: row.snapshotParagraphs.length ? row.snapshotParagraphs : d.snapshotParagraphs,
+
+    ...parseHomeExtras((row as { extras?: unknown }).extras),
     }),
   );
+}
+
+/** The slice of HomeContent persisted in the `extras` JSON column. */
+export function pickHomeExtras(data: HomeContent): HomeExtras {
+  const out = {} as Record<string, unknown>;
+  for (const key of Object.keys(getDefaultHomeExtras())) out[key] = (data as Record<string, unknown>)[key];
+  return out as unknown as HomeExtras;
 }
 
 export async function writeHomeContent(data: HomeContent): Promise<void> {
@@ -416,6 +653,8 @@ export async function writeHomeContent(data: HomeContent): Promise<void> {
 
     snapshotHeading: data.snapshotHeading,
     snapshotParagraphs: data.snapshotParagraphs,
+
+    extras: pickHomeExtras(data) as unknown as Prisma.InputJsonValue,
   };
   await writeSingletonSetting((args) => prisma.homePageContent.upsert(args), payload);
 }

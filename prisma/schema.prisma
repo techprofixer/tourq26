@@ -432,6 +432,9 @@ model SiteSettings {
   /// When true, robots.txt blocks AI *training* crawlers (GPTBot, CCBot, Google-Extended, …)
   /// while still allowing AI *search/answer* crawlers that cite and link back.
   blockAiTraining        Boolean  @default(false)
+  /// Organization schema details (legal name, contact, address, expertise…). Shape: `OrgProfile`
+  /// in src/lib/content.ts. Feeds the site-wide Organization JSON-LD.
+  orgProfile             Json?
   updatedAt          DateTime @updatedAt
 }
 
@@ -601,6 +604,12 @@ model HomePageContent {
 
   snapshotHeading    String?
   snapshotParagraphs String[] @default([])
+
+  /// Everything added after the first homepage release, kept as one JSON document so new sections
+  /// don't each need a column: proof strip, process, industries, market pulse, testimonials copy,
+  /// FAQ, hero rotating words, and the homepage SEO / schema overrides. See `HomeExtras` in
+  /// src/lib/home-content.ts for the shape + defaults.
+  extras Json?
 
   updatedAt DateTime @updatedAt
 }

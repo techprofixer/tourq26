@@ -8,12 +8,13 @@ import JsonLd from "@/components/JsonLd";
 import { readCaseStudies, getCaseStudyBySlug } from "@/lib/case-studies-content";
 import { readSiteContent } from "@/lib/content";
 import { getSiteUrl } from "@/lib/site-url";
-import { breadcrumbListJsonLd, caseStudyArticleJsonLd, INDEXABLE_ROBOTS } from "@/lib/seo";
+import { breadcrumbListJsonLd, caseStudyArticleJsonLd, INDEXABLE_ROBOTS, seoTitle, fitDescription } from "@/lib/seo";
 import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
 import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 import { RelatedContentSection } from "@/components/marketing/RelatedContentSection";
 import { getRelatedContentGroups } from "@/lib/related-links";
 import { formatLongDate } from "@/lib/date-format";
+import CategoryContact from "@/components/CategoryContact";
 
 // Safety net: on-demand revalidation covers CMS/site-setting edits, but this bounds
 // staleness to an hour even if a revalidatePath call is ever missed.
@@ -41,8 +42,8 @@ export async function generateMetadata({
   const baseUrl = site.siteUrl.replace(/\/$/, "");
   const ogImage = `/case-studies/${study.slug}/opengraph-image`;
   return {
-    title: metaTitle,
-    description: study.description,
+    title: seoTitle(metaTitle, site.siteName),
+    description: fitDescription(study.description),
     alternates: { canonical: `${baseUrl}/case-studies/${study.slug}` },
     openGraph: {
       title: `${metaTitle} | Torq Studio`,
@@ -229,6 +230,7 @@ export default async function CaseStudyDetailPage({
             </div>
           </div>
         </section>
+        <CategoryContact category="case-studies" pageTitle={study.title} path={`/case-studies/${study.slug}`} />
       </main>
       <Footer />
     </div>

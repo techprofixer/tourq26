@@ -31,25 +31,27 @@ export function ServiceSectionNav({
 
   return (
     <nav aria-label="Section navigation" className="hidden lg:sticky lg:top-28 lg:block">
-      <p className="mono-eyebrow text-muted-foreground">SECTION INDEX</p>
-      <ol className="mt-4 space-y-3 text-[14px]">
-        {sections.map((s, i) => (
-          <li key={s.id}>
-            <a
-              href={`#${s.id}`}
-              className={`flex gap-3 transition-colors ${
-                activeId === s.id
-                  ? "text-foreground"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <span className="mono-label shrink-0 text-foreground/70">
-                {String(i + 1).padStart(2, "0")}
-              </span>
-              <span>{s.heading}</span>
-            </a>
-          </li>
-        ))}
+      <p className="mono-eyebrow text-muted-foreground">ON THIS PAGE</p>
+      <ol className="relative mt-5 space-y-1 border-l border-black/10">
+        {sections.map((s, i) => {
+          const active = activeId === s.id;
+          return (
+            <li key={s.id}>
+              <a
+                href={`#${s.id}`}
+                aria-current={active ? "true" : undefined}
+                className={`-ml-px flex gap-3 border-l-2 py-2 pl-4 pr-2 text-[14px] leading-snug transition-colors ${
+                  active
+                    ? "border-[var(--brand-mint)] font-medium text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <span className="mono-label shrink-0 pt-0.5 text-foreground/50">{String(i + 1).padStart(2, "0")}</span>
+                <span>{s.heading}</span>
+              </a>
+            </li>
+          );
+        })}
       </ol>
     </nav>
   );

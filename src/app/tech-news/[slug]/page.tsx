@@ -10,8 +10,9 @@ import { getRelatedContentGroups } from "@/lib/related-links";
 import { sanitizeBlogHtml } from "@/lib/blog-sanitize";
 import { getSiteUrl } from "@/lib/site-url";
 import { readSiteContent } from "@/lib/content";
-import { breadcrumbListJsonLd, techNewsArticleJsonLd, INDEXABLE_ROBOTS } from "@/lib/seo";
+import { breadcrumbListJsonLd, techNewsArticleJsonLd, INDEXABLE_ROBOTS, seoTitle, fitDescription } from "@/lib/seo";
 import { formatLongDate } from "@/lib/date-format";
+import CategoryContact from "@/components/CategoryContact";
 
 // Safety net: on-demand revalidation covers CMS edits, but this bounds staleness
 // to an hour even if a revalidatePath call is ever missed.
@@ -34,8 +35,8 @@ export async function generateMetadata({
   const title = article.seoTitle || article.title;
   const description = article.excerpt || article.description;
   return {
-    title,
-    description,
+    title: seoTitle(title, site.siteName),
+    description: fitDescription(description),
     alternates: { canonical },
     openGraph: {
       title: `${title} | ${site.siteName}`,
@@ -143,6 +144,7 @@ export default async function TechNewsArticlePage({
           </div>
         </article>
         <RelatedContentSection groups={relatedGroups} />
+        <CategoryContact category="tech-news" pageTitle={article.title} path={`/tech-news/${article.slug}`} />
       </main>
       <Footer />
     </div>

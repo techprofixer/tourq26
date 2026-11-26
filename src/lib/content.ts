@@ -62,6 +62,62 @@ export type Testimonial = {
   rating: number;
 };
 
+/** Facts behind the site-wide Organization JSON-LD (Google knowledge panel, AI answers). Blank = omitted. */
+export type OrgProfile = {
+  legalName: string;
+  email: string;
+  phone: string;
+  streetAddress: string;
+  locality: string;
+  region: string;
+  postalCode: string;
+  country: string;
+  foundingYear: string;
+  knowsAbout: string[];
+};
+
+export function getDefaultOrgProfile(): OrgProfile {
+  return {
+    legalName: "",
+    email: "connect@torqstudio.com",
+    phone: "",
+    streetAddress: "",
+    locality: "Mumbai",
+    region: "",
+    postalCode: "",
+    country: "IN",
+    foundingYear: "",
+    knowsAbout: [
+      "Mobile app development",
+      "Web development",
+      "AI integration",
+      "Custom CRM development",
+      "Technical consulting",
+    ],
+  };
+}
+
+export function parseOrgProfile(raw: unknown): OrgProfile {
+  const d = getDefaultOrgProfile();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return d;
+  const r = raw as Record<string, unknown>;
+  const str = (k: keyof OrgProfile) => (typeof r[k] === "string" ? (r[k] as string).trim().slice(0, 300) : (d[k] as string));
+  return {
+    legalName: str("legalName"),
+    email: str("email"),
+    phone: str("phone"),
+    streetAddress: str("streetAddress"),
+    locality: str("locality"),
+    region: str("region"),
+    postalCode: str("postalCode"),
+    country: str("country"),
+    foundingYear: str("foundingYear"),
+    knowsAbout: Array.isArray(r.knowsAbout)
+      ? (r.knowsAbout as unknown[]).filter((x): x is string => typeof x === "string").map((x) => x.trim()).filter(Boolean).slice(0, 30)
+      : d.knowsAbout,
+  };
+}
+
 export type SiteContent = {
   siteUrl: string;
   defaultTitle: string;
@@ -87,6 +143,8 @@ export type SiteContent = {
   blockAiTraining: boolean;
   /** Extra Markdown appended to /llms.txt (positioning, preferred citations, key facts). */
   llmsTxtExtra: string;
+  /** Organization schema details. */
+  org: OrgProfile;
 };
 
 export type ContactSubmission = {
@@ -295,6 +353,7 @@ function getDefaultSiteContent(): SiteContent {
     robotsNoIndex: false,
     blockAiTraining: false,
     llmsTxtExtra: "",
+    org: getDefaultOrgProfile(),
   };
 }
 
@@ -325,6 +384,7 @@ export async function readSiteContent(): Promise<SiteContent> {
     robotsNoIndex: row.robotsNoIndex ?? d.robotsNoIndex,
     blockAiTraining: row.blockAiTraining ?? d.blockAiTraining,
     llmsTxtExtra: row.llmsTxtExtra ?? d.llmsTxtExtra,
+    org: parseOrgProfile((row as { orgProfile?: unknown }).orgProfile),
   };
 }
 
@@ -347,6 +407,7 @@ export async function writeSiteContent(data: SiteContent): Promise<void> {
     robotsNoIndex: data.robotsNoIndex,
     blockAiTraining: data.blockAiTraining,
     llmsTxtExtra: data.llmsTxtExtra.trim().slice(0, 20_000),
+    orgProfile: parseOrgProfile(data.org) as unknown as Prisma.InputJsonValue,
   };
   await writeSingletonSetting((args) => prisma.siteSettings.upsert(args), payload);
 }

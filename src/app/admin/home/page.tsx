@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth";
 import { readHomeContent } from "@/lib/home-content";
+import { readSiteContent } from "@/lib/content";
 import { HomeContentForm } from "./HomeContentForm";
 import { AdminPageHeader } from "../AdminPageHeader";
 
@@ -8,7 +9,7 @@ export default async function AdminHomePage() {
   const ok = await isAdmin();
   if (!ok) redirect("/admin");
 
-  const data = await readHomeContent();
+  const [data, site] = await Promise.all([readHomeContent(), readSiteContent()]);
 
   return (
     <div>
@@ -18,9 +19,19 @@ export default async function AdminHomePage() {
           { label: "Homepage" },
         ]}
         title="Homepage"
-        description="Hero (with optional image), image slider, offer banner, offers, services, why-us, case studies intro, closing CTA, and the snapshot section — everything on the homepage except testimonials (Testimonials page) and the case-study cards themselves."
+        description="Every section of the homepage — hero, services, proof strip, process, industries, market pulse, FAQ and closing CTA — plus its SEO and structured data. Testimonial quotes and case-study cards are managed on their own pages."
       />
-      <HomeContentForm initialData={data} />
+      <HomeContentForm
+        initialData={data}
+        site={{
+          siteUrl: site.siteUrl,
+          siteName: site.siteName,
+          defaultTitle: site.defaultTitle,
+          defaultDescription: site.defaultDescription,
+          ogTitle: site.ogTitle,
+          ogDescription: site.ogDescription,
+        }}
+      />
     </div>
   );
 }

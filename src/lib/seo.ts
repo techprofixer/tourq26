@@ -338,3 +338,93 @@ export function techNewsCollectionJsonLd(params: {
     },
   };
 }
+
+
+/** Truncate at a word boundary with an ellipsis (never mid-word). */
+function truncateWords(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max - 1);
+  const at = cut.lastIndexOf(" ");
+  return `${(at > max * 0.6 ? cut.slice(0, at) : cut).replace(/[\s,;:.\-–—|]+$/, "")}…`;
+}
+
+/**
+ * `<title>` that fits a SERP (~60 chars) once the layout's "%s | Site" template is applied.
+ * - strips a site-name suffix already baked into the stored title (avoids "X | Site | Site")
+ * - keeps the suffix when it fits, drops it when it would overflow, truncates as a last resort.
+ */
+export function seoTitle(title: string, siteName = "Torq Studio", max = 60): string | { absolute: string } {
+  const escaped = siteName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const clean = title.replace(new RegExp(`\\s*[|\\-–—]\\s*${escaped}\\s*$`, "i"), "").trim();
+  if (`${clean} | ${siteName}`.length <= max) return clean;
+  return { absolute: truncateWords(clean, max) };
+}
+
+/** Meta description trimmed to ~160 chars so Google doesn't cut it mid-sentence. */
+export function fitDescription(text: string | undefined | null, max = 160): string | undefined {
+  const t = text?.replace(/\s+/g, " ").trim();
+  return t ? truncateWords(t, max) : undefined;
+}
+
+
+/** Site-wide Organization JSON-LD. Shared by the layout and the admin preview so they never drift.
+ *  Empty profile fields are omitted rather than emitted blank. */
+export function organizationJsonLd(opts: {
+  siteUrl: string;
+  siteName: string;
+  description: string;
+  logo: string;
+  sameAs?: string[];
+  org: {
+    legalName: string;
+    email: string;
+    phone: string;
+    streetAddress: string;
+    locality: string;
+    region: string;
+    postalCode: string;
+    country: string;
+    foundingYear: string;
+    knowsAbout: string[];
+  };
+}) {
+  const { org } = opts;
+  const siteUrl = opts.siteUrl.replace(/\/$/, "");
+  const address = {
+    "@type": "PostalAddress",
+    ...(org.streetAddress ? { streetAddress: org.streetAddress } : {}),
+    ...(org.locality ? { addressLocality: org.locality } : {}),
+    ...(org.region ? { addressRegion: org.region } : {}),
+    ...(org.postalCode ? { postalCode: org.postalCode } : {}),
+    ...(org.country ? { addressCountry: org.country } : {}),
+  };
+  const hasAddress = Object.keys(address).length > 1;
+  const hasContact = Boolean(org.email || org.phone);
+  return {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "@id": organizationId(siteUrl),
+    name: opts.siteName,
+    ...(org.legalName ? { legalName: org.legalName } : {}),
+    url: siteUrl,
+    description: opts.description,
+    ...(org.country ? { areaServed: { "@type": "Country", name: org.country === "IN" ? "India" : org.country } } : {}),
+    ...(hasAddress ? { address } : {}),
+    ...(org.foundingYear ? { foundingDate: org.foundingYear } : {}),
+    ...(org.knowsAbout.length ? { knowsAbout: org.knowsAbout } : {}),
+    logo: opts.logo,
+    ...(hasContact
+      ? {
+          contactPoint: {
+            "@type": "ContactPoint",
+            contactType: "sales",
+            ...(org.email ? { email: org.email } : {}),
+            ...(org.phone ? { telephone: org.phone } : {}),
+            availableLanguage: ["English", "Hindi"],
+            ...(org.country ? { areaServed: org.country } : {}),
+          },
+        }
+      : {}),
+    ...(opts.sameAs?.length ? { sameAs: opts.sameAs } : {}),
+  };
+}

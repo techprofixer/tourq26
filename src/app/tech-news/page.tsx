@@ -8,6 +8,7 @@ import { getSiteUrl } from "@/lib/site-url";
 import { readSiteContent } from "@/lib/content";
 import { breadcrumbListJsonLd, techNewsCollectionJsonLd, webPageJsonLd, DEFAULT_OG_IMAGE, INDEXABLE_ROBOTS } from "@/lib/seo";
 import { formatLongDate } from "@/lib/date-format";
+import CategoryContact from "@/components/CategoryContact";
 
 const PAGE_PATH = "/tech-news";
 export const revalidate = 3600;
@@ -247,6 +248,7 @@ export default async function TechNewsPage() {
             </ul>
           </div>
         </section>
+        <CategoryContact category="tech-news" path="/tech-news" />
       </main>
       <Footer />
     </div>

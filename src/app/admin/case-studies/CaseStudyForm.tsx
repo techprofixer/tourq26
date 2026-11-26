@@ -1,5 +1,6 @@
 "use client";
 
+import { SerpPreview } from "@/components/admin/SerpPreview";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -75,9 +76,13 @@ const emptyCaseStudy: CaseStudy = {
 export function CaseStudyForm({
   item,
   availableIndustries = [],
+  siteUrl = "https://torqstudio.com",
+  siteName = "Torq Studio",
 }: {
   item?: CaseStudy;
   availableIndustries?: string[];
+  siteUrl?: string;
+  siteName?: string;
 }) {
   const router = useRouter();
   const isNew = !item;
@@ -181,6 +186,19 @@ export function CaseStudyForm({
               disabled={!data.title.trim()}
             />
           </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Meta description: <span className={data.description.length > 160 || (data.description.length > 0 && data.description.length < 110) ? "text-amber-600" : "text-success"}>{data.description.length}</span> chars
+            (aim for 110–160). Title shown in Google: <span className={`${(data.seoTitle || data.title).length > 60 ? "text-amber-600" : "text-success"}`}>{(data.seoTitle || data.title).length}</span> chars (aim ≤ 60).
+          </p>
+        </div>
+        <div>
+          <p className="mono-eyebrow mb-2 text-muted-foreground">GOOGLE RESULT PREVIEW</p>
+          <SerpPreview
+            siteUrl={siteUrl}
+            path={`/case-studies/${effectiveSlug || "your-slug"}`}
+            title={`${(data.seoTitle || data.title || "Case study title").trim()} | ${siteName}`}
+            description={data.description}
+          />
         </div>
       </section>
 
