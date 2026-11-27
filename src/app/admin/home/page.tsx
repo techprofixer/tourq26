@@ -19,7 +19,7 @@ export default async function AdminHomePage() {
           { label: "Homepage" },
         ]}
         title="Homepage"
-        description="Every section of the homepage — hero, services, proof strip, process, industries, market pulse, FAQ and closing CTA — plus its SEO and structured data. Testimonial quotes and case-study cards are managed on their own pages."
+        description="Every section of the homepage — hero, services, process, industries, FAQ and closing CTA — plus its SEO and structured data. Testimonial quotes and case-study cards are managed on their own pages."
       />
       <HomeContentForm
         initialData={data}

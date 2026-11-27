@@ -24,9 +24,13 @@ function getDefaultFooterContent(): FooterContent {
         links: [
           { href: "/services/mobile-app-development", label: "Mobile applications" },
           { href: "/services/web-development", label: "Web & APIs" },
+          { href: "/services/crm-development", label: "CRM development" },
           { href: "/services/ai-solutions", label: "AI workflows" },
           { href: "/services/remote-it", label: "Remote engineering" },
           { href: "/services/technical-consulting", label: "Advisory" },
+          { href: "/business-systems", label: "Business systems & automation" },
+          { href: "/torqos", label: "torqOS platform" },
+          { href: "/solutions", label: "Solutions" },
         ],
       },
       {

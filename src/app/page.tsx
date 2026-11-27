@@ -4,7 +4,6 @@ import Hero from "@/components/Hero";
 import OfferBanner from "@/components/OfferBanner";
 import HomeSlider from "@/components/HomeSlider";
 import Offers from "@/components/Offers";
-import TrustBar from "@/components/TrustBar";
 import Services from "@/components/Services";
 import WhyChooseUs from "@/components/WhyChooseUs";
 import CaseStudies from "@/components/CaseStudies";
@@ -12,7 +11,6 @@ import Testimonials from "@/components/Testimonials";
 import CTA from "@/components/CTA";
 import Process from "@/components/Process";
 import Industries from "@/components/Industries";
-import MarketPulse from "@/components/MarketPulse";
 import Faq from "@/components/Faq";
 import HomePageContent from "@/components/HomePageContent";
 import Footer from "@/components/Footer";
@@ -21,10 +19,8 @@ import { readTestimonials, readSiteContent } from "@/lib/content";
 import { readHomeContent, isOfferBannerLive, customHomeJsonLd } from "@/lib/home-content";
 import { readCaseStudies } from "@/lib/case-studies-content";
 import { webPageJsonLd, faqPageJsonLd, DEFAULT_OG_IMAGE } from "@/lib/seo";
-import { readTechNewsPosts, publishedTechNewsPosts } from "@/lib/tech-news-content";
 import { getEntityCatalogCards } from "@/lib/entity-catalog";
 import { servicePages } from "@/data/services-content";
-import { SupportingProseSection } from "@/components/marketing/SupportingProseSection";
 
 export async function generateMetadata(): Promise<Metadata> {
   const [site, home] = await Promise.all([readSiteContent(), readHomeContent()]);
@@ -75,30 +71,13 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function Home() {
-  const [testimonials, site, home, caseStudies, newsPosts, industries] = await Promise.all([
+  const [testimonials, site, home, caseStudies, industries] = await Promise.all([
     readTestimonials(),
     readSiteContent(),
     readHomeContent(),
     readCaseStudies(),
-    readTechNewsPosts(),
     getEntityCatalogCards("INDUSTRY"),
   ]);
-  // Newest published tech-news posts drive the hero ticker and the Market Pulse section, so the
-  // homepage reflects what's happening in the market without layout changes.
-  const news = publishedTechNewsPosts(newsPosts).slice(0, 8);
-  const ticker = news.slice(0, 6).map((p) => ({
-    label: p.title,
-    href: `/tech-news/${p.slug}`,
-    tag: p.category.toUpperCase(),
-  }));
-  const pulsePosts = news.map((p) => ({
-    slug: p.slug,
-    title: p.title,
-    dek: p.dek,
-    category: p.category,
-    date: p.date,
-    readTime: p.readTime,
-  }));
   // Admin-written FAQ wins; otherwise build from the service pages so there is always something real.
   const faqs = home.faqItems.length
     ? home.faqItems
@@ -125,9 +104,6 @@ export default async function Home() {
   const customLd = customHomeJsonLd(home.seoJsonLdCustom);
 
   const bannerActive = isOfferBannerLive(home);
-  const rotatingWords = home.heroRotatingWords.length
-    ? home.heroRotatingWords
-    : home.servicesItems.map((x) => x.title.toLowerCase()).slice(0, 6);
 
   return (
     <>
@@ -156,10 +132,7 @@ export default async function Home() {
           heroSecondaryCtaHref={home.heroSecondaryCtaHref}
           heroTertiaryCtaLabel={home.heroTertiaryCtaLabel}
           heroTertiaryCtaHref={home.heroTertiaryCtaHref}
-          heroTags={home.heroTags}
           bannerActive={bannerActive}
-          rotatingWords={rotatingWords}
-          ticker={ticker}
           heroImageEnabled={home.heroImageEnabled}
           heroImageUrl={home.heroImageUrl}
           heroImageAlt={home.heroImageAlt}
@@ -174,7 +147,6 @@ export default async function Home() {
           servicesIntro={home.servicesIntro}
           servicesItems={home.servicesItems}
         />
-        {home.proofEnabled ? <TrustBar stats={home.proofStats} regions={home.proofRegions} /> : null}
         <CaseStudies
           caseStudiesEyebrow={home.caseStudiesEyebrow}
           caseStudiesHeading={home.caseStudiesHeading}
@@ -203,14 +175,6 @@ export default async function Home() {
             intro={home.industriesIntro}
           />
         ) : null}
-        {home.marketPulseEnabled ? (
-          <MarketPulse
-            posts={pulsePosts}
-            eyebrow={home.marketPulseEyebrow}
-            heading={home.marketPulseHeading}
-            intro={home.marketPulseIntro}
-          />
-        ) : null}
         {home.testimonialsEnabled ? (
           <Testimonials
             items={testimonials}
@@ -232,11 +196,6 @@ export default async function Home() {
           ctaFootnote={home.ctaFootnote}
         />
         <HomePageContent />
-        <SupportingProseSection
-          id="home-snapshot"
-          heading={home.snapshotHeading}
-          paragraphs={home.snapshotParagraphs}
-        />
         <Footer />
       </main>
     </>

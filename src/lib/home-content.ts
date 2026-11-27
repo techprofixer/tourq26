@@ -34,7 +34,6 @@ export type OfferItem = {
   ctaHref: string;
 };
 
-export type StatItem = { value: string; label: string };
 export type ProcessStep = { title: string; body: string; tag: string };
 export type HomeFaqItem = { question: string; answer: string };
 
@@ -46,10 +45,6 @@ export type HomeExtras = {
   /** Words the hero's "Right now we're building …" line cycles through. Empty = service titles. */
   heroRotatingWords: string[];
 
-  proofEnabled: boolean;
-  proofStats: StatItem[];
-  proofRegions: string[];
-
   processEnabled: boolean;
   processEyebrow: string;
   processHeading: string;
@@ -60,11 +55,6 @@ export type HomeExtras = {
   industriesEyebrow: string;
   industriesHeading: string;
   industriesIntro: string;
-
-  marketPulseEnabled: boolean;
-  marketPulseEyebrow: string;
-  marketPulseHeading: string;
-  marketPulseIntro: string;
 
   testimonialsEnabled: boolean;
   testimonialsEyebrow: string;
@@ -148,8 +138,6 @@ export type HomeContent = HomeExtras & {
   ctaEmail: string;
   ctaFootnote: string;
 
-  snapshotHeading: string;
-  snapshotParagraphs: string[];
 };
 
 
@@ -168,15 +156,6 @@ export function isOfferBannerLive(
 export function getDefaultHomeExtras(): HomeExtras {
   return {
     heroRotatingWords: [],
-
-    proofEnabled: true,
-    proofStats: [
-      { value: "40%", label: "Lower cost vs. local-only hire" },
-      { value: "100%", label: "On-time milestone delivery" },
-      { value: "50+", label: "Production launches shipped" },
-      { value: "24h", label: "Average first-reply window" },
-    ],
-    proofRegions: ["Mumbai", "Pune", "Bengaluru", "Delhi NCR", "Hyderabad", "Chennai"],
 
     processEnabled: true,
     processEyebrow: "HOW WE WORK",
@@ -215,12 +194,6 @@ export function getDefaultHomeExtras(): HomeExtras {
     industriesEyebrow: "INDUSTRIES",
     industriesHeading: "Domain-aware, not one-size-fits-all.",
     industriesIntro: "Regulation, integrations, and user expectations differ by sector. We start from yours.",
-
-    marketPulseEnabled: true,
-    marketPulseEyebrow: "MARKET PULSE",
-    marketPulseHeading: "What\u2019s moving in tech, as it moves.",
-    marketPulseIntro:
-      "Our engineers track the shifts that change build decisions — AI, cloud, security, tooling. Updated as we publish.",
 
     testimonialsEnabled: true,
     testimonialsEyebrow: "CLIENT VOICE",
@@ -265,11 +238,6 @@ export function parseHomeExtras(raw: unknown): HomeExtras {
   return {
     heroRotatingWords: pStrArr(r.heroRotatingWords, d.heroRotatingWords),
 
-    proofEnabled: pBool(r.proofEnabled, d.proofEnabled),
-    proofStats: pObjArr<StatItem>(
-      r.proofStats, d.proofStats, (x) => typeof x.value === "string" && typeof x.label === "string", true),
-    proofRegions: pStrArr(r.proofRegions, d.proofRegions),
-
     processEnabled: pBool(r.processEnabled, d.processEnabled),
     processEyebrow: pStr(r.processEyebrow, d.processEyebrow),
     processHeading: pStr(r.processHeading, d.processHeading),
@@ -281,11 +249,6 @@ export function parseHomeExtras(raw: unknown): HomeExtras {
     industriesEyebrow: pStr(r.industriesEyebrow, d.industriesEyebrow),
     industriesHeading: pStr(r.industriesHeading, d.industriesHeading),
     industriesIntro: pStr(r.industriesIntro, d.industriesIntro),
-
-    marketPulseEnabled: pBool(r.marketPulseEnabled, d.marketPulseEnabled),
-    marketPulseEyebrow: pStr(r.marketPulseEyebrow, d.marketPulseEyebrow),
-    marketPulseHeading: pStr(r.marketPulseHeading, d.marketPulseHeading),
-    marketPulseIntro: pStr(r.marketPulseIntro, d.marketPulseIntro),
 
     testimonialsEnabled: pBool(r.testimonialsEnabled, d.testimonialsEnabled),
     testimonialsEyebrow: pStr(r.testimonialsEyebrow, d.testimonialsEyebrow),
@@ -397,6 +360,15 @@ function getDefaultHomeContent(): HomeContent {
         icon: "/images/icons/ai.svg",
       },
       {
+        slug: "crm-development",
+        title: "CRM development",
+        description:
+          "Custom CRMs and Salesforce, HubSpot or Zoho solutions so sales, support and ops share one source of truth.",
+        result: "One system, fewer spreadsheets",
+        category: "CRM",
+        icon: "/images/icons/web.svg",
+      },
+      {
         slug: "remote-it",
         title: "Embedded remote engineering",
         description:
@@ -460,14 +432,7 @@ function getDefaultHomeContent(): HomeContent {
     ctaEmail: "connect@torqstudio.com",
     ctaFootnote: "NO COMMITMENT · 24 HOUR REPLY",
 
-    snapshotHeading: "Snapshot for technical decision-makers",
     ...getDefaultHomeExtras(),
-
-    snapshotParagraphs: [
-      "Torq Studio is a senior-engineering-led practice: we build and advise on mobile applications, customer-facing websites, internal web platforms, public and partner APIs, and practical AI automation where there is a measurable workflow to improve.",
-      "Clients choose us when delivery risk is high—store review, traffic spikes, integration breakage, or governance—and they want direct access to the people doing the work. We document scope, acceptance criteria, and milestone checkpoints so finance and leadership see steady progress, not black-box development.",
-      "Engagement models span fixed-scope MVPs, ongoing retainers, embedded squads, and paid discovery or architecture reviews when you need confidence before funding a larger build. Explore services for discipline-specific detail, case studies for comparable contexts, or contact us for a free 30-minute consultation.",
-    ],
   };
 }
 
@@ -580,9 +545,6 @@ export async function readHomeContent(): Promise<HomeContent> {
     ctaEmail: row.ctaEmail || d.ctaEmail,
     ctaFootnote: row.ctaFootnote || d.ctaFootnote,
 
-    snapshotHeading: row.snapshotHeading || d.snapshotHeading,
-    snapshotParagraphs: row.snapshotParagraphs.length ? row.snapshotParagraphs : d.snapshotParagraphs,
-
     ...parseHomeExtras((row as { extras?: unknown }).extras),
     }),
   );
@@ -651,8 +613,6 @@ export async function writeHomeContent(data: HomeContent): Promise<void> {
     ctaEmail: data.ctaEmail,
     ctaFootnote: data.ctaFootnote,
 
-    snapshotHeading: data.snapshotHeading,
-    snapshotParagraphs: data.snapshotParagraphs,
 
     extras: pickHomeExtras(data) as unknown as Prisma.InputJsonValue,
   };

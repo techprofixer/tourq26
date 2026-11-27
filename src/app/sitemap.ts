@@ -111,6 +111,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.85,
     },
     { url: `${baseUrl}/freebies`, changeFrequency: "monthly", priority: 0.8 },
+    { url: `${baseUrl}/resources/glossary`, changeFrequency: "monthly", priority: 0.6 },
     {
       url: `${baseUrl}/tech-news`,
       lastModified: newest(techNewsPosts.map((p) => toDate(p.dateUpdated ?? p.date))),

@@ -164,6 +164,16 @@ export default async function AboutPage() {
           ]}
         />
 
+        <SupportingProseSection
+          id="about-where-we-add-value"
+          eyebrow="WHERE WE ADD VALUE"
+          heading="High-stakes delivery surfaces."
+          paragraphs={[
+            "Teams usually bring us in when delivery risk is high: mobile apps that must pass store review and handle real traffic, web platforms where SEO, performance and admin UX all matter, partner APIs that cannot break existing integrations, and AI workflows that need evaluation metrics rather than a demo.",
+            "We are the best fit when you want senior judgment, maintainable code and clear accountability. If you are comparing vendors on lowest hourly rate alone, we may not be the right match.",
+          ]}
+        />
+
         {/* Closing CTA */}
         <section className="hero-band border-t border-[var(--brand-hairline-on-dark)]">
           <div className="relative z-10 mx-auto grid w-full max-w-[1280px] grid-cols-1 gap-10 px-4 py-16 sm:px-6 sm:py-20 lg:grid-cols-12 lg:gap-12 lg:px-8 lg:py-[80px]">
