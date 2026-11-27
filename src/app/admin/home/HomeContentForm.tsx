@@ -274,16 +274,13 @@ const SECTIONS = [
   { id: "section-offer-banner", label: "Offer banner" },
   { id: "section-offers", label: "Offers" },
   { id: "section-services", label: "Services" },
-  { id: "section-proof", label: "Proof strip" },
   { id: "section-whyus", label: "Why us" },
   { id: "section-case-studies", label: "Case studies" },
   { id: "section-process", label: "Process" },
   { id: "section-industries", label: "Industries" },
-  { id: "section-market-pulse", label: "Market pulse" },
   { id: "section-testimonials", label: "Testimonials" },
   { id: "section-faq", label: "FAQ" },
   { id: "section-cta", label: "CTA" },
-  { id: "section-snapshot", label: "Snapshot" },
   { id: "section-seo", label: "SEO & schema" },
 ];
 
@@ -633,40 +630,6 @@ export function HomeContentForm({ initialData, site }: { initialData: HomeConten
         </div>
       </section>
 
-      <section id="section-proof" className="card-flat scroll-mt-16 space-y-4">
-        <SectionHeader
-          icon={StarIcon}
-          accent="amber"
-          title="Proof strip"
-          description="The animated numbers under services. Only publish claims you can back up."
-          toggle={<Toggle checked={data.proofEnabled} onChange={(v) => update("proofEnabled", v)} />}
-        />
-        <div className="space-y-3">
-          {data.proofStats.map((st, i) => (
-            <div key={i} className="grid items-end gap-3 rounded-lg border border-border p-3 sm:grid-cols-[8rem_1fr_auto]">
-              <Field label="Value (40%, 50+, 24h)" value={st.value} onChange={(v) => update("proofStats", data.proofStats.map((x, j) => (j === i ? { ...x, value: v } : x)))} />
-              <Field label="Label" value={st.label} onChange={(v) => update("proofStats", data.proofStats.map((x, j) => (j === i ? { ...x, label: v } : x)))} />
-              <ReorderButtons
-                index={i}
-                count={data.proofStats.length}
-                onMove={(from, to) => update("proofStats", reorder(data.proofStats, from, to))}
-                onRemove={(idx) => update("proofStats", data.proofStats.filter((_, j) => j !== idx))}
-              />
-            </div>
-          ))}
-          <button type="button" onClick={() => update("proofStats", [...data.proofStats, { value: "", label: "" }])} className="btn-base btn-outline text-sm">
-            + Add stat
-          </button>
-        </div>
-        <Field
-          label="Regions marquee (one per line; leave empty to hide)"
-          value={data.proofRegions.join("\n")}
-          onChange={(v) => update("proofRegions", v.split("\n").map((t) => t.trim()).filter(Boolean))}
-          textarea
-          rows={4}
-        />
-      </section>
-
       <section id="section-whyus" className="card-flat scroll-mt-16 space-y-4">
         <SectionHeader icon={StarIcon} accent="purple" title="Why Choose Us" />
         <Field label="Eyebrow" value={data.whyUsEyebrow} onChange={(v) => update("whyUsEyebrow", v)} />
@@ -776,19 +739,6 @@ export function HomeContentForm({ initialData, site }: { initialData: HomeConten
         <Field label="Intro" value={data.industriesIntro} onChange={(v) => update("industriesIntro", v)} textarea rows={2} />
       </section>
 
-      <section id="section-market-pulse" className="card-flat scroll-mt-16 space-y-4">
-        <SectionHeader
-          icon={MegaphoneIcon}
-          accent="teal"
-          title="Market pulse"
-          description="Live section: shows your newest published Tech news posts (also feeds the hero ticker). It hides itself when there are none."
-          toggle={<Toggle checked={data.marketPulseEnabled} onChange={(v) => update("marketPulseEnabled", v)} />}
-        />
-        <Field label="Eyebrow" value={data.marketPulseEyebrow} onChange={(v) => update("marketPulseEyebrow", v)} />
-        <Field label="Heading" value={data.marketPulseHeading} onChange={(v) => update("marketPulseHeading", v)} />
-        <Field label="Intro" value={data.marketPulseIntro} onChange={(v) => update("marketPulseIntro", v)} textarea rows={2} />
-      </section>
-
       <section id="section-testimonials" className="card-flat scroll-mt-16 space-y-4">
         <SectionHeader
           icon={StarIcon}
@@ -866,62 +816,6 @@ export function HomeContentForm({ initialData, site }: { initialData: HomeConten
           <Field label="Secondary CTA link" value={data.ctaSecondaryHref} onChange={(v) => update("ctaSecondaryHref", v)} />
           <Field label="Contact email" value={data.ctaEmail} onChange={(v) => update("ctaEmail", v)} />
           <Field label="Footnote" value={data.ctaFootnote} onChange={(v) => update("ctaFootnote", v)} />
-        </div>
-      </section>
-
-      <section id="section-snapshot" className="card-flat scroll-mt-16 space-y-4">
-        <SectionHeader
-          icon={DocIcon}
-          accent="slate"
-          title="Snapshot section"
-          description="The editorial block near the bottom of the homepage."
-        />
-        <Field label="Heading" value={data.snapshotHeading} onChange={(v) => update("snapshotHeading", v)} />
-        <div className="space-y-3">
-          {data.snapshotParagraphs.map((p, i) => (
-            <div key={i} className="space-y-2">
-              <div className="flex items-center justify-between">
-                <p className="mono-label text-muted-foreground">PARAGRAPH {i + 1}</p>
-                <div className="flex items-center gap-2">
-                  <AiGenerateButton<string>
-                    task="shortCopy"
-                    variant="inline"
-                    context={{ purpose: data.snapshotHeading || "editorial paragraph about the studio", siteContext: p }}
-                    onResult={(text) =>
-                      update(
-                        "snapshotParagraphs",
-                        data.snapshotParagraphs.map((x, j) => (j === i ? text : x)),
-                      )
-                    }
-                  />
-                  <ReorderButtons
-                    index={i}
-                    count={data.snapshotParagraphs.length}
-                    onMove={(from, to) => update("snapshotParagraphs", reorder(data.snapshotParagraphs, from, to))}
-                    onRemove={(idx) => update("snapshotParagraphs", data.snapshotParagraphs.filter((_, j) => j !== idx))}
-                  />
-                </div>
-              </div>
-              <textarea
-                value={p}
-                onChange={(e) =>
-                  update(
-                    "snapshotParagraphs",
-                    data.snapshotParagraphs.map((x, j) => (j === i ? e.target.value : x)),
-                  )
-                }
-                rows={3}
-                className={inputClass}
-              />
-            </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => update("snapshotParagraphs", [...data.snapshotParagraphs, ""])}
-            className="btn-base btn-outline text-sm"
-          >
-            + Add paragraph
-          </button>
         </div>
       </section>
 

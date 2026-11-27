@@ -39,14 +39,12 @@ describe("parseHomeExtras", () => {
     const out = parseHomeExtras({
       processHeading: "Our process",
       processEnabled: false,
-      proofStats: [{ value: "9", label: "Nine" }],
       processSteps: "garbage",
       seoMetaTitle: "Custom title",
       faqItems: [{ question: "Q?", answer: "A." }],
     });
     expect(out.processHeading).toBe("Our process");
     expect(out.processEnabled).toBe(false);
-    expect(out.proofStats).toEqual([{ value: "9", label: "Nine" }]);
     expect(out.processSteps).toEqual(getDefaultHomeExtras().processSteps);
     expect(out.seoMetaTitle).toBe("Custom title");
     expect(out.faqItems).toHaveLength(1);
@@ -56,9 +54,8 @@ describe("parseHomeExtras", () => {
     expect(out.processHeading).toBe(getDefaultHomeExtras().processHeading);
     expect(out.seoMetaTitle).toBe("");
   });
-  it("an empty stats/steps list falls back to defaults, but an empty FAQ list stays empty (auto mode)", () => {
-    const out = parseHomeExtras({ proofStats: [], processSteps: [], faqItems: [] });
-    expect(out.proofStats).toEqual(getDefaultHomeExtras().proofStats);
+  it("an empty steps list falls back to defaults, but an empty FAQ list stays empty (auto mode)", () => {
+    const out = parseHomeExtras({ processSteps: [], faqItems: [] });
     expect(out.processSteps).toEqual(getDefaultHomeExtras().processSteps);
     expect(out.faqItems).toEqual([]);
   });

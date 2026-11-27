@@ -186,7 +186,7 @@ export default async function AdminDashboardPage() {
           <p className="mono-eyebrow text-muted-foreground">SETTINGS</p>
           <h3 className="display-sm mt-2 text-foreground">Homepage</h3>
           <p className="mt-1.5 text-[14px] text-muted-foreground">
-            Hero, services, why-us, CTA, and snapshot copy.
+            Hero, services, why-us, and CTA copy.
           </p>
         </Link>
         <Link

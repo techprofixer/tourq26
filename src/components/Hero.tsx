@@ -1,16 +1,11 @@
 import Link from "next/link";
 import type { HomeContent } from "@/lib/home-content";
-import RotatingWord from "@/components/motion/RotatingWord";
 
 /**
  * Hero band (DESIGN.md → hero-band-dark).
- * Left: eyebrow, H1, sub-line with a rotating discipline word, CTAs. Right: an animated
+ * Left: eyebrow, H1, sub-line, CTAs. Right: an animated
  * "delivery pipeline" panel (pure CSS) — or an uploaded hero image when one is configured.
- * Bottom: a live ticker fed by the latest published tech-news headlines (falls back to hero tags),
- * so the first screen reflects what's happening in the market.
  */
-
-export type HeroTickerItem = { label: string; href?: string; tag?: string };
 
 export type HeroProps = Pick<
   HomeContent,
@@ -23,16 +18,12 @@ export type HeroProps = Pick<
   | "heroSecondaryCtaHref"
   | "heroTertiaryCtaLabel"
   | "heroTertiaryCtaHref"
-  | "heroTags"
   | "heroImageEnabled"
   | "heroImageUrl"
   | "heroImageAlt"
 > & {
   /** Adds the OfferBanner's height (h-10) to the top padding so it doesn't sit under it. */
   bannerActive?: boolean;
-  /** Words the rotating line cycles through (the studio's disciplines). */
-  rotatingWords: string[];
-  ticker: HeroTickerItem[];
 };
 
 const PIPELINE = [
@@ -52,18 +43,12 @@ export default function Hero({
   heroSecondaryCtaHref,
   heroTertiaryCtaLabel,
   heroTertiaryCtaHref,
-  heroTags,
   heroImageEnabled,
   heroImageUrl,
   heroImageAlt,
   bannerActive = false,
-  rotatingWords,
-  ticker,
 }: HeroProps) {
   const showImage = heroImageEnabled && heroImageUrl.trim().length > 0;
-  const tickerItems: HeroTickerItem[] = ticker.length
-    ? ticker
-    : heroTags.map((label) => ({ label }));
   return (
     <section className="hero-band hero-grid relative">
       <div className="hero-orb hero-orb-a" aria-hidden />
@@ -81,10 +66,6 @@ export default function Hero({
           <h1 className="display-xxl animate-fade-up mt-6 max-w-[17ch] text-white opacity-0 animate-delay-2">
             {heroHeading}
           </h1>
-          <p className="animate-fade-up mt-5 text-[19px] font-medium tracking-[-0.01em] text-white opacity-0 animate-delay-3">
-            Right now we&rsquo;re building{" "}
-            <RotatingWord words={rotatingWords} />
-          </p>
           <p className="animate-fade-up mt-4 max-w-xl text-[17px] leading-[1.55] tracking-[-0.01em] text-white/65 opacity-0 animate-delay-3">
             {heroSubheading}
           </p>
@@ -152,30 +133,6 @@ export default function Hero({
         </div>
       </div>
 
-      <div className="relative z-10 border-t border-white/10 bg-black/30 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-[1280px] items-center gap-5 overflow-hidden px-4 py-3.5 sm:px-6 lg:px-8">
-          <span className="mono-eyebrow hidden shrink-0 items-center gap-2 text-white/55 sm:inline-flex">
-            <span className="pulse-dot" aria-hidden />
-            {ticker.length ? "MARKET PULSE" : "WHAT WE BUILD"}
-          </span>
-          <div className="marquee-mask relative min-w-0 flex-1 overflow-hidden">
-            <ul className="marquee-track flex w-max items-center gap-10 text-[13px] text-white/65">
-              {[...tickerItems, ...tickerItems].map((t, i) => (
-                <li key={`${t.label}-${i}`} className="flex items-center gap-2 whitespace-nowrap" aria-hidden={i >= tickerItems.length}>
-                  {t.tag ? <span className="mono-label text-[var(--brand-mint)]">{t.tag}</span> : null}
-                  {t.href ? (
-                    <Link href={t.href} className="hover:text-white" tabIndex={i >= tickerItems.length ? -1 : undefined}>
-                      {t.label}
-                    </Link>
-                  ) : (
-                    <span>{t.label}</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      </div>
     </section>
   );
 }
